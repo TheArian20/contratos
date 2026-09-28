@@ -4,9 +4,20 @@ Interfaz en español para organizar contratos extrajudiciales y dar seguimiento 
 
 ## Estado del proyecto
 
-Primera etapa: **prototipo de interfaz con datos ficticios**. Permite buscar por cliente, identificación o contrato, filtrar por estado, consultar una ficha y agregar contratos temporales. Incluye una propuesta de roles y una pantalla de acceso de muestra.
+**Demostración interactiva con datos ficticios**, publicada con acceso público por solicitud del propietario.
 
-No implementa autenticación, permisos, almacenamiento permanente, importación de Excel ni carga de documentos. Los cambios se reinician al recargar. No ingresar datos reales ni credenciales. Los valores de ejemplo están expresados en pesos colombianos (COP); se debe confirmar la moneda antes de integrar información real.
+- Resumen con totales, recuperación de cartera y accesos por estado.
+- Búsqueda, creación y edición de contratos; asignación a responsables.
+- Registro de abonos con historial, validación de saldo y cierre al completar el pago.
+- Gestiones de cobranza vinculadas a cada contrato.
+- Documentos por persona y contrato: categorías Contrato, Cobranza y Otro documento. Adjuntar, abrir, descargar y quitar PDF, JPG, PNG o WebP; hasta 10 MB por archivo y 50 MB en la sesión.
+- Creación y edición de usuarios de prueba, activación y desactivación, inicio y cierre de sesión. El administrador administra la cartera; los gestores trabajan sobre contratos asignados; Consulta es solo lectura.
+
+Todo vive en memoria en la pestaña actual y se pierde al recargar o cerrar. Los documentos usan URLs de objetos locales; no se envían al servidor, no son compartidos con otros visitantes y se liberan al quitarlos o abandonar la página. No se utiliza almacenamiento persistente ni localStorage.
+
+**El acceso y los roles son simulaciones en el navegador, no una barrera de seguridad.** Las credenciales de ejemplo son intencionalmente públicas: `admin`, `laura`, `andres` y `consulta`, con contraseña `demo123`. La aplicación abre inicialmente como administrador para facilitar la prueba; para probar el acceso, abrir el perfil y cerrar sesión. Los usuarios creados funcionan hasta recargar. No ingresar datos personales ni contraseñas reales.
+
+No implementa autenticación o autorización de servidor, almacenamiento permanente ni importación de Excel. Los valores de ejemplo están expresados en pesos colombianos (COP); confirmar la moneda antes de integrar información real.
 
 ## Desarrollo
 
@@ -22,6 +33,7 @@ En PowerShell con ejecución de scripts restringida, usar `npm.cmd` en lugar de 
 ```sh
 npm run build
 npm run lint
+npm test
 npx tsc --noEmit
 ```
 
@@ -31,8 +43,11 @@ npx tsc --noEmit
 - `components/collections/`: interfaz de contratos y cobranzas.
 - `components/ui/`: componentes de interfaz provistos por el proyecto base.
 - `lib/collections.ts`: tipos, formato de importes y búsqueda.
+- `lib/attachments.ts`: validación de tipos y tamaños de documentos.
 - `lib/demo/`: registros ficticios, separados de la lógica.
 - `hooks/`: comportamiento compartido e integración opcional del navegador.
+- `hooks/use-demo-workspace.ts`: estado temporal, acciones y reglas de la demostración.
+- `tests/`: pruebas de saldos, fechas, búsquedas, acceso simulado y documentos.
 - `public/`: recursos públicos sin datos de clientes.
 - `.openai/hosting.json`: identificador y configuración de publicación, sin secretos.
 
@@ -50,3 +65,9 @@ No hay un repositorio de GitHub vinculado todavía. Su propietario, nombre y vis
 4. Incorporar importación de Excel y documentos privados.
 
 La integración opcional WebMCP expone `show_contract_search` en navegadores compatibles. Debe comprobarse en un navegador con soporte antes de considerarse validada.
+
+## Verificación
+
+Las pruebas automatizadas cubren pagos parciales y totales, rechazo de sobrepagos y duplicados, fechas inválidas, consistencia de los contratos, búsquedas, inicio de sesión simulado, usuarios inactivos, conservación de administradores, contratos asignados y límites de documentos. Se ejecutan además compilación, revisión de tipos y lint del código propio; los componentes provistos en `components/ui` y `hooks/use-mobile.ts` se mantienen separados de ese lint.
+
+No hubo un navegador automatizable disponible en la sesión de desarrollo; las interacciones visuales y WebMCP no se han verificado en navegador.

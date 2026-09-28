@@ -1217,3 +1217,368 @@ h2 {
     font-size: 22px;
   }
 }
+
+/* Interactive demo workflows. */
+.form-field {
+  display: grid;
+  gap: 8px;
+  color: #617a85;
+  font-size: 14px;
+}
+.form-field [data-slot='select-trigger'] {
+  width: 100%;
+  min-height: 43px;
+}
+.form-error {
+  margin-top: 14px;
+  padding: 12px 14px;
+  color: #9b3431;
+  background: #fff0ed;
+  border: 1px solid #f0c8c0;
+  border-radius: 7px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.inline-success {
+  display: block;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 7px;
+  background: #eaf5ee;
+  color: #326e50;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.inline-empty {
+  padding: 20px;
+  color: #71858e;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.detail-heading,
+.section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+}
+.section-title {
+  margin: 25px 0 16px;
+  flex-wrap: wrap;
+}
+.section-title h3 {
+  font-size: 16px;
+  font-weight: 600;
+}
+.section-title > span {
+  font-size: 13px;
+  color: #72858c;
+}
+.history-item {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 15px;
+  border-bottom: 1px solid #e5edef;
+  padding: 16px 0;
+}
+.history-item strong {
+  font-size: 14px;
+  font-weight: 550;
+}
+.history-item span {
+  display: block;
+  color: #6b808a;
+  font-size: 13px;
+  margin-top: 7px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.history-item > strong {
+  white-space: nowrap;
+  color: #347a64;
+}
+.inset-form {
+  background: #f5f8f8;
+  padding: 18px;
+  border-radius: 9px;
+  margin-top: 24px;
+}
+.inset-form h3 {
+  color: #35515a;
+  font-weight: 550;
+}
+.upload-zone {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 13px;
+  border: 1px dashed #7ea99a;
+  border-radius: 10px;
+  background: #f1f8f5;
+  padding: 25px 18px;
+  margin-top: 18px;
+  color: #3b7c68;
+  text-align: center;
+}
+.upload-zone > strong {
+  font-size: 15px;
+}
+.upload-zone > span {
+  font-size: 12px;
+  color: #637e74;
+}
+.upload-zone input {
+  width: 100%;
+  font-size: 13px;
+  color: #507565;
+}
+.upload-zone input::file-selector-button {
+  padding: 8px 10px;
+  margin-right: 10px;
+  border: 1px solid #a8c7b7;
+  border-radius: 6px;
+  background: white;
+  color: #31694f;
+  cursor: pointer;
+}
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 0;
+  border-bottom: 1px solid #e7edef;
+}
+.file-item > div {
+  flex: 1;
+  min-width: 0;
+}
+.file-item > svg {
+  flex-shrink: 0;
+  color: #6e9c8b;
+}
+.file-item a:not(.row-open) {
+  color: #267562;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.file-item small {
+  display: block;
+  font-size: 12px;
+  color: #789087;
+  margin-top: 6px;
+}
+.note-item {
+  padding: 18px;
+  background: #f5f8fa;
+  border-radius: 8px;
+  margin-top: 18px;
+}
+.note-item > strong {
+  display: block;
+  font-size: 14px;
+}
+.note-item small {
+  font-size: 12px;
+  color: #789099;
+}
+.note-item p {
+  font-size: 15px;
+  line-height: 1.8;
+  margin-top: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.login-page {
+  min-height: 100dvh;
+  max-width: none;
+  background: #122c35;
+  display: grid;
+  place-items: center;
+  padding: 35px 16px;
+}
+.login-card {
+  background: #fff;
+  padding: 36px;
+  width: min(100%, 470px);
+  border-radius: 15px;
+  box-shadow: 0 20px 70px #06192060;
+}
+.login-card .brand {
+  color: #254e55;
+  margin-bottom: 30px;
+}
+.login-card h1 {
+  font-size: 26px;
+}
+.login-card > p {
+  color: #7a8e96;
+  font-size: 14px;
+  margin: 12px 0 22px;
+}
+.password-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: -10px;
+}
+.password-field input {
+  flex: 1;
+}
+.demo-credentials {
+  background: #f0f5f3;
+  padding: 18px;
+  border-radius: 8px;
+  margin-top: 25px;
+  color: #4e7567;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.demo-credentials p {
+  margin: 10px 0;
+}
+.demo-credentials code {
+  background: white;
+  border: 1px solid #dae7e0;
+  border-radius: 4px;
+  padding: 2px 5px;
+}
+.demo-credentials small {
+  display: block;
+  font-size: 12px;
+  color: #647e73;
+  line-height: 1.7;
+}
+.panel-message {
+  margin: 24px;
+  font-size: 14px;
+  color: #6f848c;
+  line-height: 1.8;
+}
+.panel-message.form-error {
+  color: #9b3431;
+}
+.user-table {
+  margin-top: 25px;
+}
+.switch-label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.permission-panel {
+  padding: 30px;
+  display: grid;
+  gap: 18px;
+  justify-items: start;
+}
+.permission-panel p {
+  line-height: 1.7;
+  color: #6b8089;
+}
+.table-actions {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+.table-actions .secondary-button {
+  min-height: 34px;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+.text-button {
+  color: #157f70;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+.summary-panel {
+  padding: 28px;
+}
+.summary-percentage {
+  display: block;
+  font-size: 48px;
+  letter-spacing: -2px;
+  margin: 25px 0 15px;
+  color: #237f6a;
+  font-weight: 600;
+}
+.collection-progress {
+  height: 10px;
+}
+.summary-panel > p {
+  font-size: 14px;
+  margin: 15px 0 25px;
+  color: #6d848d;
+}
+.status-overview {
+  display: grid;
+  gap: 10px;
+}
+.status-overview button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 0;
+  border-bottom: 1px solid #e8eef0;
+}
+.status-overview button strong {
+  margin-left: auto;
+  font-size: 18px;
+}
+.status-overview button svg {
+  color: #7da99a;
+}
+.status-overview button:hover {
+  background: #f4f9f6;
+}
+.contract-sheet[data-slot='sheet-content'] {
+  width: min(100%, 580px);
+  max-width: 580px;
+}
+.detail-tabs {
+  overflow-x: auto;
+  justify-content: start;
+}
+.detail-tabs [data-slot='tabs-trigger'] {
+  padding: 8px;
+}
+@media (max-width: 950px) {
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+  .users-panel .panel-heading {
+    align-items: start;
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 767px) {
+  .login-card {
+    padding: 26px;
+  }
+  .contract-sheet[data-slot='sheet-content'] {
+    padding: 8px;
+  }
+  .sheet-body {
+    padding: 4px 10px 24px;
+  }
+  .detail-tabs [data-slot='tabs-trigger'] {
+    font-size: 13px;
+  }
+  .summary-panel {
+    padding: 22px;
+  }
+}
+.document-shortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
