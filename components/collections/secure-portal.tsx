@@ -1,0 +1,1280 @@
+﻿'use client';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  FolderClosed,
+  Search,
+  LogOut,
+  Users,
+  ShieldCheck,
+  FileText,
+  ChevronRight,
+  Download,
+  Menu,
+} from 'lucide-react';
+import { concepts } from '@/lib/concept-payments';
+import { Brand, Choice } from './shared';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
+import {
+  organizeSheet,
+  clean,
+  cellText,
+  groupNames,
+  type Dataset,
+  type SourceRecord,
+  type OrganizedSheet,
+} from '@/lib/source-data';
+
+type User = {
+  id: string;
+  name: string;
+  username: string;
+  role: string;
+  active: boolean;
+  mustChange: boolean;
+};
+type Extras = {
+  documents: { id: string; name: string; category: string; author: string }[];
+  entries: {
+    id: string;
+    kind: string;
+    body: string;
+    author: string;
+    created: string;
+  }[];
+};
+async function api<T = { ok: boolean }>(
+  path: string,
+  method = 'GET',
+  data?: unknown,
+) {
+  const response = await fetch(`/api/secure/${path}`, {
+    method,
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers:
+      data instanceof FormData ? {} : { 'Content-Type': 'application/json' },
+    ...(method !== 'GET' && data !== undefined
+      ? { body: data instanceof FormData ? data : JSON.stringify(data) }
+      : {}),
+  });
+  const result = (await response.json()) as T & { error?: string };
+  if (!response.ok)
+    throw new Error(result.error || 'No se pudo completar la operación.');
+  return result;
+}
+const errorText = (e: unknown) =>
+  e instanceof Error ? e.message : 'Ocurrió un error. Inténtalo de nuevo.';
+export function SecurePortal() {
+  const [user, setUser] = useState<User | null>(null),
+    [loading, setLoading] = useState(true),
+    [data, setData] = useState<Dataset | null>(null),
+    [error, setError] = useState('');
+  const [view, setView] = useState('Base'),
+    [active, setActive] = useState<number | null>(null),
+    [query, setQuery] = useState(''),
+    [page, setPage] = useState(0),
+    [filter, setFilter] = useState('Todos los registros'),
+    [menu, setMenu] = useState(false);
+  const [selection, setSelection] = useState<{
+    sheet: number;
+    row: number;
+  } | null>(null);
+  async function refresh() {
+    setLoading(true);
+    setError('');
+    try {
+      const session = await api<{ user: User }>('session');
+      setUser(session.user);
+      if (!session.user.mustChange) {
+        const result = await api<Dataset>('dataset');
+        setData(result.version === 1 ? result : null);
+      }
+    } catch (e) {
+      setError(errorText(e));
+      setUser(null);
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => {
+    let cancelled = false;
+    void api<{ user: User }>('session')
+      .then(async (session) => {
+        if (cancelled) return;
+        setUser(session.user);
+        if (!session.user.mustChange) {
+          const result = await api<Dataset>('dataset');
+          if (!cancelled) setData(result.version === 1 ? result : null);
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setError(errorText(e));
+          setUser(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const sheets = useMemo(() => data?.sheets.map(organizeSheet) ?? [], [data]),
+    sheet = active === null ? null : sheets[active];
+  const records = useMemo(
+    () =>
+      (sheet ? [sheet] : sheets).flatMap((s) =>
+        s.records.map((record) => ({ sheet: s.index, record })),
+      ),
+    [sheets, sheet],
+  );
+  const matches = useMemo(
+    () =>
+      records.filter(({ record }) => {
+        if (filter === 'Expedientes' && record.kind !== 'Expediente')
+          return false;
+        if (
+          filter === 'Pendientes de identificar' &&
+          (record.kind !== 'Expediente' || !!record.document)
+        )
+          return false;
+        if (
+          filter === 'Anotaciones y encabezados' &&
+          record.kind === 'Expediente'
+        )
+          return false;
+        const term = clean(query);
+        return (
+          !term || record.fields.some((f) => clean(f.cell.value).includes(term))
+        );
+      }),
+    [records, filter, query],
+  );
+  const selected = selection
+    ? sheets[selection.sheet]?.records.find((r) => r.row === selection.row)
+    : null;
+  const choose = (index: number | null) => {
+    setActive(index);
+    setPage(0);
+    setFilter('Todos los registros');
+    setView('Base');
+    setMenu(false);
+  };
+  if (loading)
+    return (
+      <div className="secure-loading">
+        <Brand />
+        <p>Cargando tu espacio…</p>
+      </div>
+    );
+  if (!user)
+    return (
+      <AccessForm
+        error={error === 'Inicia sesión para acceder.' ? '' : error}
+        onLogin={async (username, password) => {
+          await api('login', 'POST', { username, password });
+          await refresh();
+        }}
+      />
+    );
+  if (user.mustChange)
+    return (
+      <div className="secure-loading">
+        <Brand />
+        <h1>Establece tu contraseña personal</h1>
+        <PasswordForm
+          onDone={() => {
+            setUser(null);
+            setData(null);
+          }}
+        />
+      </div>
+    );
+  return (
+    <div className="secure-app">
+      <aside className={`secure-sidebar ${menu ? 'is-open' : ''}`}>
+        <Brand />
+        <button
+          className={view === 'Base' && active === null ? 'active' : ''}
+          onClick={() => choose(null)}
+        >
+          <FolderClosed size={19} /> Toda la base
+        </button>
+        {[
+          'Proyectos',
+          'Servicios y trámites',
+          'Casos especiales',
+          'Guía de la base',
+          'Otras hojas',
+        ].map((category) => {
+          const items = sheets.filter((s) => s.category === category);
+          return items.length ? (
+            <div className="secure-nav-group" key={category}>
+              <p>{category}</p>
+              {items.map((s) => (
+                <button
+                  title={s.name}
+                  className={
+                    view === 'Base' && active === s.index ? 'active' : ''
+                  }
+                  key={s.name}
+                  onClick={() => choose(s.index)}
+                >
+                  <span>{s.name}</span>
+                  <small>{s.records.length}</small>
+                </button>
+              ))}
+            </div>
+          ) : null;
+        })}
+        <div className="secure-nav-group">
+          <p>Administración</p>
+          {user.role === 'Administrador' && (
+            <button
+              onClick={() => {
+                setView('Equipo');
+                setMenu(false);
+              }}
+            >
+              <Users size={18} /> Equipo
+            </button>
+          )}
+          <button
+            onClick={() => {
+              setView('Cuenta');
+              setMenu(false);
+            }}
+          >
+            <ShieldCheck size={18} /> Mi cuenta
+          </button>
+        </div>
+        <button
+          onClick={async () => {
+            try {
+              await api('logout', 'POST');
+              setUser(null);
+              setData(null);
+              setSelection(null);
+            } catch (e) {
+              setError(errorText(e));
+            }
+          }}
+        >
+          <LogOut size={18} /> Cerrar sesión
+        </button>
+      </aside>
+      <div className="secure-main">
+        <header className="topbar">
+          <div className="breadcrumb">
+            <button
+              className="help-button"
+              aria-label="Abrir navegación"
+              onClick={() => setMenu(!menu)}
+            >
+              <Menu size={20} />
+            </button>
+            <span>Cartera</span>
+            <ChevronRight size={15} />
+            <strong>
+              {view === 'Base' ? (sheet?.name ?? 'Toda la base') : view}
+            </strong>
+          </div>
+          <span className="secure-user">
+            {user.name} · {user.role}
+          </span>
+        </header>
+        <main>
+          {error && (
+            <p className="notice" role="alert">
+              {error}
+              <button onClick={() => setError('')}>Cerrar</button>
+            </p>
+          )}
+          {view === 'Equipo' ? (
+            <TeamPanel current={user} />
+          ) : view === 'Cuenta' ? (
+            <section className="panel secure-content">
+              <h1>Mi cuenta</h1>
+              <p>
+                {user.name} · {user.username}
+              </p>
+              <PasswordForm
+                onDone={() => {
+                  setUser(null);
+                  setData(null);
+                }}
+              />
+            </section>
+          ) : (
+            <>
+              <div className="page-heading">
+                <div>
+                  <p className="eyebrow">ARCHIVO DE CONTRATOS Y COBRANZAS</p>
+                  <h1>{sheet?.name ?? 'Tu base, en orden'}</h1>
+                  <p className="subtitle">
+                    {sheet?.description ??
+                      'Proyectos, expedientes, servicios y anotaciones conservados desde el Excel.'}
+                  </p>
+                </div>
+                {user.role === 'Administrador' && data && (
+                  <a
+                    className="secondary-button"
+                    download
+                    href="/api/secure/source"
+                  >
+                    <Download size={17} /> Excel original
+                  </a>
+                )}
+              </div>
+              {!data ? (
+                <section className="panel secure-content">
+                  <h2>Preparando la base</h2>
+                  <p>
+                    La importación verificada aparecerá aquí cuando termine.
+                  </p>
+                  <button
+                    className="primary-button"
+                    onClick={() => void refresh()}
+                  >
+                    Actualizar
+                  </button>
+                </section>
+              ) : (
+                <>
+                  <div className="secure-summary">
+                    <div>
+                      <span>Hojas conservadas</span>
+                      <strong>{sheets.length}</strong>
+                    </div>
+                    <div>
+                      <span>Filas en esta vista</span>
+                      <strong>{records.length}</strong>
+                    </div>
+                    <div>
+                      <span>Filas con nombre identificado</span>
+                      <strong>
+                        {
+                          records.filter((r) => r.record.kind === 'Expediente')
+                            .length
+                        }
+                      </strong>
+                    </div>
+                    <div>
+                      <span>Saldos del Excel</span>
+                      <strong className="pending-label">Por validar</strong>
+                    </div>
+                  </div>
+                  {active === null && !query && (
+                    <div className="project-grid">
+                      {sheets.map((s) => (
+                        <button
+                          key={s.name}
+                          className="project-card"
+                          onClick={() => choose(s.index)}
+                        >
+                          <div>
+                            <FolderClosed size={21} />
+                            <small>{s.category}</small>
+                          </div>
+                          <h2>{s.name}</h2>
+                          <p>{s.description}</p>
+                          <span>
+                            {s.records.length} filas de origen{' '}
+                            <ChevronRight size={16} />
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <section className="panel">
+                    <div className="panel-heading">
+                      <div>
+                        <h2>
+                          {sheet?.category === 'Guía de la base'
+                            ? 'Descripciones del archivo'
+                            : 'Registros y expedientes'}
+                        </h2>
+                        <p>
+                          Importes según el Excel · TOTAL A COBRAR pendiente ·
+                          Sin fusiones automáticas
+                        </p>
+                      </div>
+                    </div>
+                    <div className="secure-filters">
+                      <label className="search-field">
+                        <Search size={18} />
+                        <input
+                          aria-label="Buscar registros"
+                          placeholder="Persona, DNI, lote, contrato o descripción"
+                          value={query}
+                          onChange={(e) => {
+                            setQuery(e.target.value);
+                            setPage(0);
+                          }}
+                        />
+                      </label>
+                      <Choice
+                        label="Tipo de registro"
+                        value={filter}
+                        options={[
+                          'Todos los registros',
+                          'Expedientes',
+                          'Pendientes de identificar',
+                          'Anotaciones y encabezados',
+                        ]}
+                        onChange={(v) => {
+                          setFilter(v);
+                          setPage(0);
+                        }}
+                      />
+                      <button
+                        className="secondary-button"
+                        onClick={() => {
+                          setQuery('');
+                          setFilter('Todos los registros');
+                          setPage(0);
+                        }}
+                      >
+                        Limpiar
+                      </button>
+                    </div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Persona / descripción</TableHead>
+                          <TableHead>Identificación / contrato</TableHead>
+                          <TableHead>Lote / ubicación</TableHead>
+                          <TableHead>Origen</TableHead>
+                          <TableHead>Detalle</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {matches
+                          .slice(page * 25, page * 25 + 25)
+                          .map(({ sheet: si, record: r }) => (
+                            <TableRow key={`${si}:${r.row}`}>
+                              <TableCell>
+                                <strong>
+                                  {r.person ||
+                                    r.fields
+                                      .map((f) => cellText(f.cell))
+                                      .filter(Boolean)
+                                      .slice(0, 2)
+                                      .join(' · ') ||
+                                    'Fila con formato'}
+                                </strong>
+                                <small className="record-kind">{r.kind}</small>
+                              </TableCell>
+                              <TableCell>
+                                {r.document || 'Identificación pendiente'}
+                                <small className="record-kind">
+                                  {r.contract}
+                                </small>
+                              </TableCell>
+                              <TableCell>
+                                {r.lot || 'Sin ubicación identificada'}
+                              </TableCell>
+                              <TableCell>
+                                {sheets[si].name}
+                                <small className="record-kind">
+                                  Fila {r.row}
+                                </small>
+                              </TableCell>
+                              <TableCell>
+                                <button
+                                  className="secondary-button"
+                                  onClick={() =>
+                                    setSelection({ sheet: si, row: r.row })
+                                  }
+                                >
+                                  Abrir ficha
+                                </button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                      </TableBody>
+                    </Table>
+                    {!matches.length && (
+                      <p className="secure-content">
+                        No hay registros con estos filtros.
+                      </p>
+                    )}
+                    <div className="secure-pagination">
+                      <span>
+                        {matches.length} registros · Página {page + 1} de{' '}
+                        {Math.max(1, Math.ceil(matches.length / 25))}
+                      </span>
+                      <button
+                        className="secondary-button"
+                        disabled={page === 0}
+                        onClick={() => setPage(page - 1)}
+                      >
+                        Anterior
+                      </button>
+                      <button
+                        className="secondary-button"
+                        disabled={(page + 1) * 25 >= matches.length}
+                        onClick={() => setPage(page + 1)}
+                      >
+                        Siguiente
+                      </button>
+                    </div>
+                  </section>
+                  <p className="secure-footnote">
+                    {data.sourceName} · Todos los valores conservan su hoja y
+                    celda. Los vacíos no se convierten en cero. Las correcciones
+                    se anotan sin sobrescribir el original.
+                  </p>
+                </>
+              )}
+            </>
+          )}
+        </main>
+      </div>
+      {selected && selection && data && (
+        <RecordPanel
+          key={`${selection.sheet}:${selection.row}`}
+          record={selected}
+          sheet={sheets[selection.sheet]}
+          data={data}
+          user={user}
+          onClose={() => setSelection(null)}
+          onRelated={(document) => {
+            choose(null);
+            setQuery(document);
+            setSelection(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+function AccessForm({
+  error,
+  onLogin,
+}: {
+  error: string;
+  onLogin: (username: string, password: string) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false),
+    [message, setMessage] = useState(error);
+  return (
+    <div className="secure-login">
+      <section>
+        <Brand />
+        <p className="eyebrow">ESPACIO DE TU EQUIPO</p>
+        <h1>
+          Contratos y cobranzas,
+          <br />
+          en un solo lugar.
+        </h1>
+        <p>Accede a tus proyectos, lotes, documentos y seguimiento.</p>
+      </section>
+      <form
+        className="panel"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          const f = new FormData(e.currentTarget);
+          setBusy(true);
+          setMessage('');
+          try {
+            await onLogin(
+              f.get('username') as string,
+              f.get('password') as string,
+            );
+          } catch (err) {
+            setMessage(errorText(err));
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <ShieldCheck size={30} />
+        <h2>Iniciar sesión</h2>
+        <p>Ingresa con la cuenta de tu equipo.</p>
+        <label>
+          Usuario
+          <input name="username" autoComplete="username" required />
+        </label>
+        <label>
+          Contraseña
+          <input
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            required
+          />
+        </label>
+        {message && (
+          <p role="alert" className="form-error">
+            {message}
+          </p>
+        )}
+        <button className="primary-button" disabled={busy}>
+          {busy ? 'Ingresando…' : 'Entrar a mi espacio'}
+        </button>
+        <small>Las cuentas se crean desde Administración.</small>
+      </form>
+    </div>
+  );
+}
+function PasswordForm({ onDone }: { onDone: () => void }) {
+  const [error, setError] = useState(''),
+    [busy, setBusy] = useState(false);
+  return (
+    <form
+      className="secure-form"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        const f = new FormData(e.currentTarget);
+        if (f.get('password') !== f.get('confirm')) {
+          setError('Las contraseñas no coinciden.');
+          return;
+        }
+        setBusy(true);
+        try {
+          await api('password', 'POST', {
+            current: f.get('current'),
+            password: f.get('password'),
+          });
+          onDone();
+        } catch (err) {
+          setError(errorText(err));
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <h2>Cambiar contraseña</h2>
+      <label>
+        Contraseña actual
+        <input
+          type="password"
+          name="current"
+          autoComplete="current-password"
+          required
+        />
+      </label>
+      <label>
+        Nueva contraseña · mínimo 12 caracteres
+        <input
+          type="password"
+          name="password"
+          autoComplete="new-password"
+          minLength={12}
+          required
+        />
+      </label>
+      <label>
+        Repetir nueva contraseña
+        <input
+          type="password"
+          name="confirm"
+          autoComplete="new-password"
+          minLength={12}
+          required
+        />
+      </label>
+      {error && <p role="alert">{error}</p>}
+      <button className="primary-button" disabled={busy}>
+        {busy ? 'Guardando…' : 'Guardar y volver a iniciar sesión'}
+      </button>
+    </form>
+  );
+}
+function TeamPanel({ current }: { current: User }) {
+  const [users, setUsers] = useState<User[]>([]),
+    [error, setError] = useState(''),
+    [busy, setBusy] = useState(false),
+    [role, setRole] = useState('Consulta');
+  const load = async () => {
+    try {
+      setUsers(await api<User[]>('users'));
+    } catch (e) {
+      setError(errorText(e));
+    }
+  };
+  useEffect(() => {
+    let cancelled = false;
+    void api<User[]>('users')
+      .then((rows) => {
+        if (!cancelled) setUsers(rows);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(errorText(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return (
+    <div className="secure-team">
+      <section className="panel secure-content">
+        <h1>Equipo de trabajo</h1>
+        <p>
+          Administración gestiona usuarios. Gestor agrega documentos y
+          gestiones. Consulta solo lee. Las cuentas activas ven la base
+          completa.
+        </p>
+        {error && <p role="alert">{error}</p>}
+        {users.map((u) => (
+          <div className="team-row" key={u.id}>
+            <span>
+              <strong>{u.name}</strong>
+              <small>
+                {u.username} · {u.role} · {u.active ? 'Activo' : 'Desactivado'}
+              </small>
+            </span>
+            {u.id !== current.id && (
+              <button
+                className="secondary-button"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    await api('users', 'PATCH', {
+                      id: u.id,
+                      active: !u.active,
+                    });
+                    await load();
+                  } catch (e) {
+                    setError(errorText(e));
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                {u.active ? 'Desactivar' : 'Activar'}
+              </button>
+            )}
+          </div>
+        ))}
+      </section>
+      <form
+        className="panel secure-content secure-form"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          const form = e.currentTarget,
+            f = new FormData(form);
+          setBusy(true);
+          setError('');
+          try {
+            await api('users', 'POST', {
+              name: f.get('name'),
+              username: f.get('username'),
+              password: f.get('password'),
+              role,
+            });
+            form.reset();
+            await load();
+          } catch (err) {
+            setError(errorText(err));
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <h2>Crear una cuenta</h2>
+        <label>
+          Nombre
+          <input name="name" required maxLength={100} />
+        </label>
+        <label>
+          Usuario
+          <input
+            name="username"
+            pattern="[a-zA-Z0-9._-]{3,60}"
+            required
+            autoComplete="off"
+          />
+        </label>
+        <label>
+          Contraseña inicial
+          <input
+            name="password"
+            type="password"
+            minLength={12}
+            required
+            autoComplete="new-password"
+          />
+        </label>
+        <Choice
+          label="Rol de usuario"
+          value={role}
+          options={['Consulta', 'Gestor', 'Administrador']}
+          onChange={setRole}
+        />
+        <p>La persona tendrá que cambiar su contraseña al ingresar.</p>
+        <button className="primary-button" disabled={busy}>
+          Crear usuario
+        </button>
+      </form>
+    </div>
+  );
+}
+function RecordPanel({
+  record,
+  sheet,
+  data,
+  user,
+  onClose,
+  onRelated,
+}: {
+  record: SourceRecord;
+  sheet: OrganizedSheet;
+  data: Dataset;
+  user: User;
+  onClose: () => void;
+  onRelated: (document: string) => void;
+}) {
+  const id = `${data.sourceHash}:${record.id}`,
+    [extras, setExtras] = useState<Extras>({ documents: [], entries: [] }),
+    [error, setError] = useState(''),
+    [busy, setBusy] = useState(false),
+    [category, setCategory] = useState('Contrato'),
+    [kind, setKind] = useState('Gestión');
+  const load = async () => {
+    try {
+      setExtras(await api<Extras>(`record?id=${encodeURIComponent(id)}`));
+    } catch (e) {
+      setError(errorText(e));
+    }
+  };
+  useEffect(() => {
+    let cancelled = false;
+    void api<Extras>(`record?id=${encodeURIComponent(id)}`)
+      .then((rows) => {
+        if (!cancelled) setExtras(rows);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(errorText(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+  const renderFields = (fields: SourceRecord['fields']) => (
+    <dl className="source-fields">
+      {fields.map((f) => {
+        const style = data.styles?.[f.cell.style ?? ''];
+        return (
+          <div key={f.coordinate}>
+            <dt>
+              {f.header}
+              <small>{f.coordinate}</small>
+            </dt>
+            <dd>{cellText(f.cell) || 'Sin valor registrado'}</dd>
+            {style && (style.fill || style.color) && (
+              <small className="source-style">
+                {style.fill && <span style={{ backgroundColor: style.fill }} />}
+                {style.color && (
+                  <span style={{ backgroundColor: style.color }} />
+                )}
+                Color de origen{style.strike ? ' · texto tachado' : ''}
+              </small>
+            )}
+            {f.cell.formula && (
+              <small className="source-formula">
+                Fórmula original: {f.cell.formula} · resultado guardado
+              </small>
+            )}
+            {clean(f.header) === 'TOTAL A COBRAR' && (
+              <small className="source-pending">
+                Pendiente de definición · excluido de cálculos
+              </small>
+            )}
+          </div>
+        );
+      })}
+    </dl>
+  );
+  return (
+    <Sheet
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <SheetContent className="source-sheet">
+        <SheetHeader>
+          <p className="eyebrow">
+            {sheet.name} · FILA {record.row}
+          </p>
+          <SheetTitle>{record.person || record.kind}</SheetTitle>
+          <SheetDescription>
+            {record.lot || 'Registro conservado desde el archivo original.'}
+          </SheetDescription>
+        </SheetHeader>
+        <div className="source-sheet-body">
+          {error && <p role="alert">{error}</p>}
+          <div className="source-state">
+            Saldo por validar · Sin cálculo automático
+          </div>
+          {record.document && (
+            <button
+              className="secondary-button"
+              onClick={() => onRelated(record.document)}
+            >
+              Buscar este DNI en toda la base
+            </button>
+          )}
+          <Tabs defaultValue="ficha">
+            <TabsList className="source-tabs">
+              <TabsTrigger value="ficha">Ficha</TabsTrigger>
+              <TabsTrigger value="cuotas">Cuotas</TabsTrigger>
+              <TabsTrigger value="abonos">Abonos por concepto</TabsTrigger>
+              <TabsTrigger value="documentos">Documentos</TabsTrigger>
+              <TabsTrigger value="gestion">Seguimiento</TabsTrigger>
+              <TabsTrigger value="origen">Origen completo</TabsTrigger>
+            </TabsList>
+            <TabsContent value="ficha">
+              {groupNames
+                .filter((g) => g !== 'Cuotas y aportaciones')
+                .map((group) => {
+                  const fields = record.fields.filter((f) => f.group === group);
+                  return fields.length ? (
+                    <section className="source-group" key={group}>
+                      <h3>{group}</h3>
+                      {renderFields(fields)}
+                    </section>
+                  ) : null;
+                })}
+            </TabsContent>
+            <TabsContent value="cuotas">
+              <p className="excel-caution">
+                Valores y referencias anotados en el Excel. No se suman como
+                pagos confirmados ni se asignan a otro lote.
+              </p>
+              {record.fields.some(
+                (f) => f.group === 'Cuotas y aportaciones',
+              ) ? (
+                renderFields(
+                  record.fields.filter(
+                    (f) => f.group === 'Cuotas y aportaciones',
+                  ),
+                )
+              ) : (
+                <p className="secure-content">
+                  Esta fila no tiene columnas de cuotas identificadas.
+                </p>
+              )}
+            </TabsContent>
+            <TabsContent value="abonos">
+              <ConceptPayments
+                id={id}
+                lot={record.lot}
+                canEdit={user.role !== 'Consulta'}
+              />
+            </TabsContent>
+            <TabsContent value="documentos">
+              <h3>Referencias del Excel</h3>
+              {renderFields(
+                record.fields.filter(
+                  (f) => f.group === 'Documentos y trámites',
+                ),
+              )}
+              <p>
+                Las rutas del Excel son referencias. Adjunta el archivo para
+                guardarlo en el expediente.
+              </p>
+              <h3 className="source-group">Archivos del expediente</h3>
+              {extras.documents.map((doc) => (
+                <a
+                  className="document-row"
+                  download
+                  href={`/api/secure/document?id=${doc.id}`}
+                  key={doc.id}
+                >
+                  <FileText size={20} />
+                  <span>
+                    {doc.name}
+                    <small>
+                      {doc.category} · {doc.author}
+                    </small>
+                  </span>
+                  <Download size={18} />
+                </a>
+              ))}
+              {!extras.documents.length && (
+                <p>No hay archivos adjuntos todavía.</p>
+              )}
+              {user.role !== 'Consulta' && (
+                <form
+                  className="secure-form source-group"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const form = e.currentTarget,
+                      f = new FormData(form);
+                    f.set('recordId', id);
+                    f.set('category', category);
+                    setBusy(true);
+                    setError('');
+                    try {
+                      await api('documents', 'POST', f);
+                      form.reset();
+                      await load();
+                    } catch (err) {
+                      setError(errorText(err));
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  <Choice
+                    label="Tipo de documento"
+                    value={category}
+                    options={['Contrato', 'Cobranza', 'Otro documento']}
+                    onChange={setCategory}
+                  />
+                  <label>
+                    Archivo · PDF o imagen, máximo 10 MB
+                    <input
+                      type="file"
+                      name="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.webp"
+                      required
+                    />
+                  </label>
+                  <button className="primary-button" disabled={busy}>
+                    {busy ? 'Guardando…' : 'Adjuntar al expediente'}
+                  </button>
+                </form>
+              )}
+            </TabsContent>
+            <TabsContent value="gestion">
+              <p>
+                Las correcciones quedan registradas para revisión y no alteran
+                el Excel original.
+              </p>
+              {extras.entries.map((entry) => (
+                <article className="source-group" key={entry.id}>
+                  <strong>{entry.kind}</strong>
+                  <p className="source-note">{entry.body}</p>
+                  <small>
+                    {entry.author} ·{' '}
+                    {new Date(entry.created).toLocaleString('es-PE')}
+                  </small>
+                </article>
+              ))}
+              {user.role !== 'Consulta' && (
+                <form
+                  className="secure-form source-group"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const form = e.currentTarget,
+                      f = new FormData(form);
+                    setBusy(true);
+                    setError('');
+                    try {
+                      await api('entry', 'POST', {
+                        recordId: id,
+                        kind,
+                        body: f.get('body'),
+                      });
+                      form.reset();
+                      await load();
+                    } catch (err) {
+                      setError(errorText(err));
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  <Choice
+                    label="Tipo de anotación"
+                    value={kind}
+                    options={['Gestión', 'Corrección pendiente']}
+                    onChange={setKind}
+                  />
+                  <label>
+                    Descripción
+                    <textarea name="body" rows={5} required maxLength={10000} />
+                  </label>
+                  <button className="primary-button" disabled={busy}>
+                    {busy ? 'Guardando…' : 'Guardar anotación'}
+                  </button>
+                </form>
+              )}
+            </TabsContent>
+            <TabsContent value="origen">
+              <p className="excel-caution">
+                {data.sourceName} · {sheet.name} · Fila {record.row}. Se
+                conservan valores, coordenadas y fórmulas. Los números de fecha
+                y formatos se verifican en el Excel original; los colores no
+                asignan estados automáticamente.
+              </p>
+              {renderFields(record.fields)}
+            </TabsContent>
+          </Tabs>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+type ConceptPayment = {
+  id: string;
+  concept: string;
+  lot: string;
+  cents: number;
+  date: string;
+  reference: string;
+  author: string;
+};
+function ConceptPayments({
+  id,
+  lot,
+  canEdit,
+}: {
+  id: string;
+  lot: string;
+  canEdit: boolean;
+}) {
+  const [payments, setPayments] = useState<ConceptPayment[]>([]),
+    [concept, setConcept] = useState('Lote'),
+    [error, setError] = useState(''),
+    [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void api<ConceptPayment[]>(`payments?id=${encodeURIComponent(id)}`)
+      .then((rows) => {
+        if (!cancelled) setPayments(rows);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(errorText(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+  const money = (cents: number) =>
+    new Intl.NumberFormat('es-PE', {
+      style: 'currency',
+      currency: 'PEN',
+    }).format(cents / 100);
+  return (
+    <>
+      <h3>Abonos separados por concepto</h3>
+      <p>
+        Cada pago se registra para un concepto y un lote. Estos abonos nuevos se
+        muestran separados del historial del Excel para evitar contarlos dos
+        veces. El saldo anterior sigue pendiente de validar.
+      </p>
+      {error && <p role="alert">{error}</p>}
+      <div className="concept-grid">
+        {concepts.map((c) => (
+          <div key={c}>
+            <strong>{c}</strong>
+            <span>
+              {money(
+                payments
+                  .filter((p) => p.concept === c)
+                  .reduce((n, p) => n + p.cents, 0),
+              )}
+            </span>
+            <small>Abonos registrados en el sistema</small>
+          </div>
+        ))}
+      </div>
+      {payments.map((p) => (
+        <article className="source-group" key={p.id}>
+          <strong>
+            {p.concept} ? {money(p.cents)}
+          </strong>
+          <p>
+            {p.lot} ? {p.date}
+          </p>
+          <small>
+            Recibo: {p.reference} ? {p.author}
+          </small>
+        </article>
+      ))}
+      {canEdit && (
+        <form
+          className="secure-form source-group"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const form = e.currentTarget,
+              f = new FormData(form);
+            setBusy(true);
+            setError('');
+            try {
+              await api('payments', 'POST', {
+                recordId: id,
+                concept,
+                lot: f.get('lot'),
+                amount: f.get('amount'),
+                date: f.get('date'),
+                reference: f.get('reference'),
+              });
+              setPayments(
+                await api<ConceptPayment[]>(
+                  `payments?id=${encodeURIComponent(id)}`,
+                ),
+              );
+              form.reset();
+            } catch (err) {
+              setError(errorText(err));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <h3>Registrar un abono nuevo</h3>
+          <Choice
+            label="Concepto del abono"
+            value={concept}
+            options={[...concepts]}
+            onChange={setConcept}
+          />
+          <label>
+            Lote de este pago ? indica uno solo
+            <input name="lot" defaultValue={lot} required maxLength={300} />
+          </label>
+          <label>
+            Importe en soles
+            <input
+              name="amount"
+              inputMode="decimal"
+              placeholder="0.00"
+              required
+            />
+          </label>
+          <label>
+            Fecha del pago
+            <input
+              type="date"
+              name="date"
+              max={new Date().toISOString().slice(0, 10)}
+              required
+            />
+          </label>
+          <label>
+            N?mero de recibo o referencia
+            <input name="reference" maxLength={150} required />
+          </label>
+          <button className="primary-button" disabled={busy}>
+            {busy ? 'Guardando?' : 'Registrar abono'}
+          </button>
+        </form>
+      )}
+    </>
+  );
+}
