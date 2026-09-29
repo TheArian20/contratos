@@ -90,9 +90,11 @@ export function ContractDetail({
             )}
           </div>
           <div className="balance-block">
+            <p className="detail-lot">{contract.lot || 'Lote por asignar'}</p>
             <span>Saldo pendiente</span>
             <strong>{money(contract.amount - contract.paid)}</strong>
             <p>Valor del contrato: {money(contract.amount)}</p>
+            <p>Total pagado: {money(contract.paid)}</p>
           </div>
           <Tabs
             defaultValue={initialTab}
@@ -109,6 +111,10 @@ export function ContractDetail({
             </TabsList>
             <TabsContent value="general">
               <dl className="detail-list">
+                <div>
+                  <dt>Lote / referencia</dt>
+                  <dd>{contract.lot || 'Por asignar'}</dd>
+                </div>
                 <div>
                   <dt>Identificación</dt>
                   <dd>{contract.document}</dd>

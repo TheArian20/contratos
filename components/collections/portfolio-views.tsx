@@ -62,7 +62,7 @@ export function ContractTable({
           <p>
             {collectionMode
               ? 'Registra un abono o el resultado de la gestión.'
-              : 'Busca por nombre, identificación o número de contrato.'}
+              : 'Busca por nombre, identificación, lote o contrato.'}
           </p>
         </div>
         <FolderClosed size={21} className="muted-icon" />
@@ -72,7 +72,7 @@ export function ContractTable({
           <Search size={18} />
           <input
             aria-label="Buscar contratos"
-            placeholder="Nombre, identificación o contrato…"
+            placeholder="Nombre, identificación, lote o contrato…"
             value={query}
             onChange={(event) => onQuery(event.target.value)}
           />
@@ -117,6 +117,9 @@ export function ContractTable({
                       {contract.client}
                     </button>
                     <span className="contract-id">{contract.id}</span>
+                    <span className="lot-reference">
+                      {contract.lot || 'Lote por asignar'}
+                    </span>
                   </div>
                 </div>
               </TableCell>
@@ -124,6 +127,9 @@ export function ContractTable({
                 {money(contract.amount - contract.paid)}
                 <span className="secondary-line">
                   de {money(contract.amount)}
+                </span>
+                <span className="secondary-line">
+                  Pagado: {money(contract.paid)}
                 </span>
               </TableCell>
               <TableCell>

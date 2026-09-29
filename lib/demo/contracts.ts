@@ -4,6 +4,7 @@ import type { Contract } from '@/lib/collections';
 export const demoContracts: Contract[] = [
   {
     id: 'EXT-2026-001',
+    lot: 'Mz. A · Lote 01',
     client: 'Mariana Torres',
     document: 'DEMO-1001',
     amount: 4800000,
@@ -15,6 +16,7 @@ export const demoContracts: Contract[] = [
   },
   {
     id: 'EXT-2026-002',
+    lot: 'Mz. A · Lote 02',
     client: 'Carlos Ramírez',
     document: 'DEMO-1002',
     amount: 7200000,
@@ -26,6 +28,7 @@ export const demoContracts: Contract[] = [
   },
   {
     id: 'EXT-2026-003',
+    lot: 'Mz. A · Lote 03',
     client: 'Valentina Gómez',
     document: 'DEMO-1003',
     amount: 3500000,
@@ -37,6 +40,7 @@ export const demoContracts: Contract[] = [
   },
   {
     id: 'EXT-2026-004',
+    lot: 'Mz. B · Lote 01',
     client: 'Diego Herrera',
     document: 'DEMO-1004',
     amount: 5600000,
@@ -48,6 +52,7 @@ export const demoContracts: Contract[] = [
   },
   {
     id: 'EXT-2026-005',
+    lot: 'Mz. B · Lote 02',
     client: 'Lucía Mendoza',
     document: 'DEMO-1005',
     amount: 2400000,
@@ -59,6 +64,7 @@ export const demoContracts: Contract[] = [
   },
   {
     id: 'EXT-2026-006',
+    lot: 'Mz. C · Lote 01',
     client: 'Santiago Ruiz',
     document: 'DEMO-1006',
     amount: 1800000,
@@ -67,5 +73,17 @@ export const demoContracts: Contract[] = [
     status: 'Finalizado',
     owner: 'Andrés Rojas',
     location: 'Archivo cerrado · Carpeta 01',
+  },
+  {
+    id: 'EXT-2026-007',
+    client: 'Mariana Torres',
+    document: 'DEMO-1001',
+    lot: 'Mz. B · Lote 03',
+    amount: 6000000,
+    paid: 2000000,
+    due: '2026-10-10',
+    status: 'Al día',
+    owner: 'Laura Méndez',
+    location: 'Archivador B · Carpeta 03',
   },
 ];

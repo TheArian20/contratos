@@ -8,6 +8,7 @@ Interfaz en español para organizar contratos extrajudiciales y dar seguimiento 
 
 - Resumen con totales, recuperación de cartera y accesos por estado.
 - Búsqueda, creación y edición de contratos; asignación a responsables.
+- Vista Lotes con valor total, pagado y saldo por registro. Una persona puede tener varios lotes con pagos independientes; pulsar su nombre filtra todos sus registros por identificación exacta y muestra los totales. Cada lote se registra en una ficha separada; la referencia del lote es opcional hasta recibir los datos reales.
 - Registro de abonos con historial, validación de saldo y cierre al completar el pago.
 - Gestiones de cobranza vinculadas a cada contrato.
 - Documentos por persona y contrato: categorías Contrato, Cobranza y Otro documento. Adjuntar, abrir, descargar y quitar PDF, JPG, PNG o WebP; hasta 10 MB por archivo y 50 MB en la sesión.
@@ -68,6 +69,6 @@ La integración opcional WebMCP expone `show_contract_search` en navegadores com
 
 ## Verificación
 
-Las pruebas automatizadas cubren pagos parciales y totales, rechazo de sobrepagos y duplicados, fechas inválidas, consistencia de los contratos, búsquedas, inicio de sesión simulado, usuarios inactivos, conservación de administradores, contratos asignados y límites de documentos. Se ejecutan además compilación, revisión de tipos y lint del código propio; los componentes provistos en `components/ui` y `hooks/use-mobile.ts` se mantienen separados de ese lint.
+Las pruebas automatizadas cubren pagos parciales y totales, rechazo de sobrepagos y duplicados, fechas inválidas, consistencia de los contratos, búsquedas, inicio de sesión simulado, usuarios inactivos, conservación de administradores, contratos asignados y límites de documentos. También verifican que varios lotes de una persona mantengan saldos independientes, que los totales coincidan y que identificaciones parecidas no se mezclen. Se ejecutan además compilación, revisión de tipos y lint del código propio; los componentes provistos en `components/ui` y `hooks/use-mobile.ts` se mantienen separados de ese lint.
 
 No hubo un navegador automatizable disponible en la sesión de desarrollo; las interacciones visuales y WebMCP no se han verificado en navegador.

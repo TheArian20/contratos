@@ -14,6 +14,7 @@ export interface Contract {
   status: ContractStatus;
   owner: string;
   location: string;
+  lot?: string;
   payments?: Payment[];
   notes?: CollectionNote[];
   attachments?: Attachment[];
@@ -75,6 +76,8 @@ export function isValidDate(value: string) {
   );
 }
 export function validateContract(contract: Contract) {
+  if (contract.lot && contract.lot.trim().length > 80)
+    throw new Error('La referencia del lote debe tener hasta 80 caracteres.');
   if (!contract.client.trim() || !contract.document.trim())
     throw new Error('Completa el nombre y la identificación del cliente.');
   if (
@@ -200,6 +203,26 @@ export function filterContracts(
   return contracts.filter(
     (c) =>
       (status === 'Todos' || c.status === status) &&
-      normalize(`${c.client} ${c.document} ${c.id}`).includes(term),
+      normalize(`${c.client} ${c.document} ${c.id} ${c.lot ?? ''}`).includes(
+        term,
+      ),
+  );
+}
+
+export function portfolioTotals(contracts: Contract[]) {
+  return contracts.reduce(
+    (totals, contract) => ({
+      amount: totals.amount + contract.amount,
+      paid: totals.paid + contract.paid,
+      pending: totals.pending + contract.amount - contract.paid,
+    }),
+    { amount: 0, paid: 0, pending: 0 },
+  );
+}
+
+export function contractsForPerson(contracts: Contract[], document: string) {
+  const identity = normalize(document.trim());
+  return contracts.filter(
+    (contract) => normalize(contract.document.trim()) === identity,
   );
 }

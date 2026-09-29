@@ -9,6 +9,7 @@ import {
   FileText,
   FolderClosed,
   LayoutDashboard,
+  MapPinned,
   Plus,
   ShieldCheck,
   Users,
@@ -35,10 +36,12 @@ import { ContractDetail, type DetailTab } from './contract-detail';
 import { AccountDialog, LoginScreen, UsersPanel } from './users-panel';
 import { Agenda, ContractTable, PortfolioSummary } from './portfolio-views';
 import { Brand, initials } from './shared';
+import { LotsView } from './lots-view';
 
 const navigation = [
   { label: 'Resumen', icon: LayoutDashboard },
   { label: 'Contratos', icon: FolderClosed },
+  { label: 'Lotes', icon: MapPinned },
   { label: 'Cobranzas', icon: Wallet },
   { label: 'Usuarios', icon: Users },
 ];
@@ -209,14 +212,18 @@ export function CollectionsWorkspace() {
                     ? 'Contratos'
                     : view === 'Cobranzas'
                       ? 'Seguimiento de cobranzas'
-                      : 'Tu equipo de trabajo'}
+                      : view === 'Lotes'
+                        ? 'Lotes y saldos'
+                        : 'Tu equipo de trabajo'}
               </h1>
               <p className="subtitle">
                 {view === 'Usuarios'
                   ? 'Un usuario para cada persona y sus responsabilidades.'
-                  : demo.user.role === 'Gestor de cobranza'
-                    ? 'Gestiona los contratos que tienes asignados.'
-                    : 'Organiza, consulta y da seguimiento a cada compromiso.'}
+                  : view === 'Lotes'
+                    ? 'Cada persona, sus lotes y sus pagos en un solo lugar.'
+                    : demo.user.role === 'Gestor de cobranza'
+                      ? 'Gestiona los contratos que tienes asignados.'
+                      : 'Organiza, consulta y da seguimiento a cada compromiso.'}
               </p>
             </div>
             {view !== 'Usuarios' && canManage && (
@@ -245,7 +252,7 @@ export function CollectionsWorkspace() {
               </button>
             </output>
           )}
-          {view !== 'Usuarios' && (
+          {view !== 'Usuarios' && view !== 'Lotes' && (
             <section className="metrics" aria-label="Resumen de cartera">
               <Metric
                 title="Saldo por cobrar"
@@ -292,6 +299,8 @@ export function CollectionsWorkspace() {
               }}
               onAccount={() => setAccountOpen(true)}
             />
+          ) : view === 'Lotes' ? (
+            <LotsView contracts={contracts} canEdit={canEdit} onOpen={open} />
           ) : view === 'Resumen' ? (
             <PortfolioSummary
               contracts={contracts}
@@ -363,7 +372,7 @@ export function CollectionsWorkspace() {
             setNotice(
               `Contrato ${id} ${editor === 'new' ? 'creado' : 'actualizado'}.`,
             );
-            navigate('Contratos');
+            navigate(view === 'Lotes' ? 'Lotes' : 'Contratos');
             open(id);
           }}
           onClose={() => setEditor(null)}

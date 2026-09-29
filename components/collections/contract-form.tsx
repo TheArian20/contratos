@@ -66,6 +66,7 @@ export function ContractForm({
                 id: contract?.id ?? '',
                 client: textField(form, 'client'),
                 document: textField(form, 'document'),
+                lot: textField(form, 'lot'),
                 amount: Number(textField(form, 'amount')),
                 paid: contract?.paid ?? 0,
                 due: textField(form, 'due'),
@@ -101,6 +102,23 @@ export function ContractForm({
               maxLength={30}
             />
           </label>
+          <div className="form-field">
+            <label htmlFor="contract-lot">
+              Lote / referencia
+              <Input
+                id="contract-lot"
+                name="lot"
+                defaultValue={contract?.lot}
+                placeholder="Ej. Mz. A · Lote 01"
+                maxLength={80}
+              />
+              <small className="field-hint">
+                Si una persona tiene varios lotes, registra cada uno por
+                separado con la misma identificación. Puedes completar el lote
+                después.
+              </small>
+            </label>
+          </div>
           <div className="form-two">
             <label htmlFor="contract-amount">
               Valor del contrato (COP)

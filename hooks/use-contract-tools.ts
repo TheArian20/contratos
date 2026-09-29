@@ -38,7 +38,7 @@ export function useContractTools(
           {
             name: 'show_contract_search',
             description:
-              'Filtra los contratos de demostración por nombre, identificación o número y muestra los resultados en la pantalla de contratos.',
+              'Filtra los contratos de demostración por nombre, identificación, lote o número y muestra los resultados en la pantalla de contratos.',
             inputSchema: {
               type: 'object',
               properties: {

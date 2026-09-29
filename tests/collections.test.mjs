@@ -10,6 +10,7 @@ import {
   visibleContracts,
 } from '../lib/collections.ts';
 import { attachmentMime, validateAttachments } from '../lib/attachments.ts';
+import { contractsForPerson, portfolioTotals } from '../lib/collections.ts';
 
 const contract = {
   id: 'EXT-1',
@@ -141,4 +142,62 @@ test('document size limit applies to the whole session and rejects a batch atomi
   assert.doesNotThrow(() =>
     validateAttachments([{ name: 'nuevo.pdf', type: '', size: 1024 }], 0),
   );
+});
+
+test('one person can have several lot accounts without mixing another identification', () => {
+  const first = { ...contract, lot: 'Mz. A - Lote 01' };
+  const second = {
+    ...contract,
+    id: 'EXT-2',
+    lot: 'Mz. B - Lote 03',
+    amount: 2000,
+    paid: 500,
+  };
+  const otherPerson = {
+    ...contract,
+    id: 'EXT-3',
+    document: 'DEMO-10',
+    lot: 'Mz. C - Lote 09',
+  };
+  const lots = contractsForPerson([first, second, otherPerson], ' demo-1 ');
+  assert.deepEqual(
+    lots.map((item) => item.id),
+    ['EXT-1', 'EXT-2'],
+  );
+  assert.deepEqual(portfolioTotals(lots), {
+    amount: 3000,
+    paid: 700,
+    pending: 2300,
+  });
+});
+
+test('a payment changes only its selected lot and the combined total stays consistent', () => {
+  const first = { ...contract, lot: 'A-01' };
+  const second = {
+    ...contract,
+    id: 'EXT-2',
+    lot: 'A-02',
+    amount: 2000,
+    paid: 500,
+  };
+  const updated = addPayment(first, payment);
+  assert.equal(updated.lot, 'A-01');
+  assert.equal(second.paid, 500);
+  assert.equal(second.payments, undefined);
+  assert.deepEqual(portfolioTotals([updated, second]), {
+    amount: 3000,
+    paid: 1000,
+    pending: 2000,
+  });
+});
+
+test('lot search finds its own account and supports records not assigned yet', () => {
+  const assigned = { ...contract, lot: 'Mz. B - Lote 03' };
+  assert.deepEqual(filterContracts([contract, assigned], 'lote 03', 'Todos'), [
+    assigned,
+  ]);
+  assert.equal(filterContracts([contract], 'undefined', 'Todos').length, 0);
+  assert.doesNotThrow(() => validateContract({ ...contract, lot: '' }));
+  assert.throws(() => validateContract({ ...contract, lot: 'a'.repeat(81) }));
+  assert.deepEqual(portfolioTotals([]), { amount: 0, paid: 0, pending: 0 });
 });
