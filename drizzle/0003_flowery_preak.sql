@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `person_document_unique` ON `people` (`document`) WHERE "people"."document" <> '';

@@ -1,4 +1,4 @@
-﻿# Cartera
+# Cartera
 
 Sistema en español para expedientes, contratos extrajudiciales, documentos y cobranzas. La entrada es pública; los datos y documentos requieren autenticación de servidor. El código no contiene registros reales ni contraseñas de producción.
 
@@ -14,11 +14,25 @@ Sistema en español para expedientes, contratos extrajudiciales, documentos y co
 - Gestiones y correcciones pendientes se guardan como anotaciones con autor y fecha, sin alterar el origen.
 - Nuevos abonos en soles por concepto y lote: Lote, Luz, Agua, Título, Autovalúo, Faenas, Vías y Otros servicios. Importes enteros en céntimos, referencia obligatoria, validación de fecha y protección contra recibos duplicados en el mismo concepto/expediente. Se separan de los importes históricos para evitar doble conteo.
 
+## Trabajo diario y fichas confirmadas
+
+La entrada principal es Trabajo diario: Hoy, Personas, Registrar pago y Pendientes de revisar. Archivo original conserva la organización por hojas y todas las celdas de origen.
+
+- Administración confirma manualmente los registros de una persona; la identificación exacta sugiere coincidencias pero nunca las une sin confirmación. Identificaciones no vacías únicas y cada origen solo puede pertenecer a una ficha. Las correcciones mantienen un historial.
+- Una persona puede tener varios lotes. Cada lote tiene cuentas independientes por concepto. No se generan importes financieros ni lotes confirmados a partir de columnas ambiguas.
+- El saldo requiere un importe acordado y un histórico pagado explícitamente confirmado. Un histórico desconocido no es cero. Los pagos históricos confirmados requieren fecha de corte anterior a hoy; los nuevos abonos deben ser posteriores.
+- Los planes mensuales dividen el saldo exacto en céntimos, ajustando el día al final de cada mes cuando corresponde. Los abonos se aplican a la cuota seleccionada, sin distribuirse entre otros lotes o conceptos.
+- Registro guiado en tres pasos con resumen antes de confirmar. Operaciones idempotentes, referencias únicas, comprobación de cuenta/cuota y control de concurrencia evitan duplicados y sobrepagos de saldos conocidos.
+- Las anulaciones requieren Administración y un motivo. Conservan el pago, autor, fecha y motivo; el importe deja de descontarse de la cuenta y cuota. No se borran pagos.
+- Hoy muestra cuotas vencidas y próximas de planes confirmados, compromisos y gestiones pendientes. Completar una gestión no registra un pago.
+- El historial de la ficha conserva antes, después, autor, fecha y motivo para personas, lotes, cuentas, vencimientos, vínculos y movimientos.
+- Los abonos de la versión anterior conservan sus datos y quedan pendientes de asignación a una cuenta. Administración puede vincularlos, con motivo, antes de programar cuotas y siempre fuera del corte histórico. El asistente no modifica vínculos reales ni confirma saldos por su cuenta.
+
 ## Datos pendientes de confirmar
 
 TOTAL A COBRAR queda fuera de cálculos por instrucción del propietario. No se presenta como deuda cero ningún saldo desconocido. Los conceptos pueden tener cuotas propias; no se deduce de cada importe si es precio, saldo o pago. Las filas sin encabezados se conservan como anotaciones pendientes de clasificación. Los colores se muestran como referencia visual, sin adjudicar automáticamente estados legales o de pago. Las fórmulas usan su resultado guardado; no se recalculan. El original descargable permite comprobar formatos y contexto completos.
 
-No hay recuperación de contraseña por correo ni conciliación de nuevas versiones de Excel todavía. Las correcciones no cambian los valores originales. No hay una garantía de exactitud de información que ya estaba incompleta o desactualizada en el Excel.
+No hay recuperación de contraseña por correo ni conciliación de nuevas versiones de Excel todavía. Las correcciones actualizan las fichas confirmadas, con historial; el Excel original permanece inmutable. No hay una garantía de exactitud de información que ya estaba incompleta o desactualizada en el Excel.
 
 ## Desarrollo
 
@@ -46,6 +60,8 @@ Los enlaces D1 y R2 están en `.openai/hosting.json`. El esquema está en `db/sc
 - Los componentes anteriores de demostración y `lib/demo` conservan solo ejemplos ficticios y no se montan en la página principal.
 
 ## Verificación y límites
+
+Pruebas de flujo locales adicionales verifican identidad única, vínculos, edición concurrente, cuentas y cuotas, pagos idempotentes, sobrepagos, anulaciones, corrección de vencimientos, compromisos y permisos.
 
 Pruebas unitarias de preservación de filas/celdas, coordenadas, campos vacíos, céntimos, fechas, contraseñas y origen de solicitudes. Pruebas de integración locales con D1/R2 verifican acceso anónimo denegado, roles, cambio de contraseña, revocación de sesiones, importación exacta, adjuntos, referencias duplicadas y abonos. También se ejecutan tipos, lint y compilación. No se ha realizado una prueba visual en navegador.
 

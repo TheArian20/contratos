@@ -15,6 +15,27 @@
       "when": 1790717607664,
       "tag": "0001_needy_bruce_banner",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790724722150,
+      "tag": "0002_shallow_machine_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1790725723907,
+      "tag": "0003_flowery_preak",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1790725884269,
+      "tag": "0004_panoramic_agent_brand",
+      "breakpoints": true
     }
   ]
 }

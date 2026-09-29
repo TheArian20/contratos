@@ -1,0 +1,1 @@
+ALTER TABLE `accounts` ADD `opening_confirmed` integer DEFAULT 0 NOT NULL;

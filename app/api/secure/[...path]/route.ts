@@ -1,3 +1,4 @@
+import { workRoute } from '@/lib/work-api';
 import { bindings } from '@/lib/server-store';
 import {
   checkPassword,
@@ -212,6 +213,7 @@ async function handler(request: Request) {
     }
     if (user.must_change)
       fail(403, 'Cambia tu contraseña inicial antes de acceder a la base.');
+    if (action?.startsWith('desk-')) return workRoute(request, DB, FILES, user);
     const admin = () => {
       if (user.role !== 'Administrador')
         fail(403, 'Solo Administración puede realizar esta acción.');
@@ -413,6 +415,11 @@ async function handler(request: Request) {
       return json({ documents: docs.results, entries: entries.results });
     }
     if (action === 'payments') {
+      if (request.method === 'POST')
+        fail(
+          409,
+          'Usa Registrar pago en Trabajo diario para seleccionar una cuenta confirmada.',
+        );
       const recordId =
         request.method === 'GET' ? (url.searchParams.get('id') ?? '') : '';
       if (request.method === 'GET') {

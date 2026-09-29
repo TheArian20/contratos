@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Cartera | Contratos y cobranzas',
   description:
-    'Organiza tus contratos extrajudiciales y el seguimiento de tus cobranzas. Interfaz de demostración.',
+    'Organiza tus contratos extrajudiciales y el seguimiento de tus cobranzas. Acceso para el equipo.',
 };
 
 export default function RootLayout({

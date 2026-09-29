@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import { useEffect, useMemo, useState } from 'react';
 import {
   FolderClosed,
@@ -11,7 +11,7 @@ import {
   Download,
   Menu,
 } from 'lucide-react';
-import { concepts } from '@/lib/concept-payments';
+import { DailyWorkspace } from './daily-workspace';
 import { Brand, Choice } from './shared';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
@@ -84,7 +84,7 @@ export function SecurePortal() {
     [loading, setLoading] = useState(true),
     [data, setData] = useState<Dataset | null>(null),
     [error, setError] = useState('');
-  const [view, setView] = useState('Base'),
+  const [view, setView] = useState('Trabajo diario'),
     [active, setActive] = useState<number | null>(null),
     [query, setQuery] = useState(''),
     [page, setPage] = useState(0),
@@ -212,10 +212,19 @@ export function SecurePortal() {
       <aside className={`secure-sidebar ${menu ? 'is-open' : ''}`}>
         <Brand />
         <button
+          className={view === 'Trabajo diario' ? 'active' : ''}
+          onClick={() => {
+            setView('Trabajo diario');
+            setMenu(false);
+          }}
+        >
+          Trabajo diario
+        </button>
+        <button
           className={view === 'Base' && active === null ? 'active' : ''}
           onClick={() => choose(null)}
         >
-          <FolderClosed size={19} /> Toda la base
+          <FolderClosed size={19} /> Archivo original
         </button>
         {[
           'Proyectos',
@@ -293,7 +302,7 @@ export function SecurePortal() {
             <span>Cartera</span>
             <ChevronRight size={15} />
             <strong>
-              {view === 'Base' ? (sheet?.name ?? 'Toda la base') : view}
+              {view === 'Base' ? (sheet?.name ?? 'Archivo original') : view}
             </strong>
           </div>
           <span className="secure-user">
@@ -307,7 +316,13 @@ export function SecurePortal() {
               <button onClick={() => setError('')}>Cerrar</button>
             </p>
           )}
-          {view === 'Equipo' ? (
+          {view === 'Trabajo diario' ? (
+            <DailyWorkspace
+              data={data}
+              role={user.role}
+              onSource={(sheet, row) => setSelection({ sheet, row })}
+            />
+          ) : view === 'Equipo' ? (
             <TeamPanel current={user} />
           ) : view === 'Cuenta' ? (
             <section className="panel secure-content">
@@ -977,11 +992,11 @@ function RecordPanel({
               )}
             </TabsContent>
             <TabsContent value="abonos">
-              <ConceptPayments
-                id={id}
-                lot={record.lot}
-                canEdit={user.role !== 'Consulta'}
-              />
+              <p className="excel-caution">
+                Para registrar o revisar abonos, abre Trabajo diario y la ficha
+                confirmada de la persona. All? cada pago se vincula a un lote y
+                concepto.
+              </p>
             </TabsContent>
             <TabsContent value="documentos">
               <h3>Referencias del Excel</h3>
@@ -1126,155 +1141,5 @@ function RecordPanel({
         </div>
       </SheetContent>
     </Sheet>
-  );
-}
-
-type ConceptPayment = {
-  id: string;
-  concept: string;
-  lot: string;
-  cents: number;
-  date: string;
-  reference: string;
-  author: string;
-};
-function ConceptPayments({
-  id,
-  lot,
-  canEdit,
-}: {
-  id: string;
-  lot: string;
-  canEdit: boolean;
-}) {
-  const [payments, setPayments] = useState<ConceptPayment[]>([]),
-    [concept, setConcept] = useState('Lote'),
-    [error, setError] = useState(''),
-    [busy, setBusy] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    void api<ConceptPayment[]>(`payments?id=${encodeURIComponent(id)}`)
-      .then((rows) => {
-        if (!cancelled) setPayments(rows);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(errorText(e));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [id]);
-  const money = (cents: number) =>
-    new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: 'PEN',
-    }).format(cents / 100);
-  return (
-    <>
-      <h3>Abonos separados por concepto</h3>
-      <p>
-        Cada pago se registra para un concepto y un lote. Estos abonos nuevos se
-        muestran separados del historial del Excel para evitar contarlos dos
-        veces. El saldo anterior sigue pendiente de validar.
-      </p>
-      {error && <p role="alert">{error}</p>}
-      <div className="concept-grid">
-        {concepts.map((c) => (
-          <div key={c}>
-            <strong>{c}</strong>
-            <span>
-              {money(
-                payments
-                  .filter((p) => p.concept === c)
-                  .reduce((n, p) => n + p.cents, 0),
-              )}
-            </span>
-            <small>Abonos registrados en el sistema</small>
-          </div>
-        ))}
-      </div>
-      {payments.map((p) => (
-        <article className="source-group" key={p.id}>
-          <strong>
-            {p.concept} ? {money(p.cents)}
-          </strong>
-          <p>
-            {p.lot} ? {p.date}
-          </p>
-          <small>
-            Recibo: {p.reference} ? {p.author}
-          </small>
-        </article>
-      ))}
-      {canEdit && (
-        <form
-          className="secure-form source-group"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const form = e.currentTarget,
-              f = new FormData(form);
-            setBusy(true);
-            setError('');
-            try {
-              await api('payments', 'POST', {
-                recordId: id,
-                concept,
-                lot: f.get('lot'),
-                amount: f.get('amount'),
-                date: f.get('date'),
-                reference: f.get('reference'),
-              });
-              setPayments(
-                await api<ConceptPayment[]>(
-                  `payments?id=${encodeURIComponent(id)}`,
-                ),
-              );
-              form.reset();
-            } catch (err) {
-              setError(errorText(err));
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <h3>Registrar un abono nuevo</h3>
-          <Choice
-            label="Concepto del abono"
-            value={concept}
-            options={[...concepts]}
-            onChange={setConcept}
-          />
-          <label>
-            Lote de este pago ? indica uno solo
-            <input name="lot" defaultValue={lot} required maxLength={300} />
-          </label>
-          <label>
-            Importe en soles
-            <input
-              name="amount"
-              inputMode="decimal"
-              placeholder="0.00"
-              required
-            />
-          </label>
-          <label>
-            Fecha del pago
-            <input
-              type="date"
-              name="date"
-              max={new Date().toISOString().slice(0, 10)}
-              required
-            />
-          </label>
-          <label>
-            N?mero de recibo o referencia
-            <input name="reference" maxLength={150} required />
-          </label>
-          <button className="primary-button" disabled={busy}>
-            {busy ? 'Guardando?' : 'Registrar abono'}
-          </button>
-        </form>
-      )}
-    </>
   );
 }
