@@ -72,3 +72,11 @@ La integración opcional WebMCP expone `show_contract_search` en navegadores com
 Las pruebas automatizadas cubren pagos parciales y totales, rechazo de sobrepagos y duplicados, fechas inválidas, consistencia de los contratos, búsquedas, inicio de sesión simulado, usuarios inactivos, conservación de administradores, contratos asignados y límites de documentos. También verifican que varios lotes de una persona mantengan saldos independientes, que los totales coincidan y que identificaciones parecidas no se mezclen. Se ejecutan además compilación, revisión de tipos y lint del código propio; los componentes provistos en `components/ui` y `hooks/use-mobile.ts` se mantienen separados de ese lint.
 
 No hubo un navegador automatizable disponible en la sesión de desarrollo; las interacciones visuales y WebMCP no se han verificado en navegador.
+
+## Revisión local de Excel
+
+La sección Revisar Excel abre archivos .xlsx de hasta 15 MB en memoria del navegador. Permite seleccionar hoja, buscar cualquier valor, paginar y consultar las celdas de una fila con sus coordenadas originales. Al abandonar la sección o recargar se descartan los datos. No hay carga al servidor ni persistencia; no se modifica el archivo original.
+
+Los encabezados de personas, DNI y ubicación se reconocen cuando existen. Las hojas no reconocidas permanecen consultables como filas originales. No se fusionan personas, contratos ni hojas. No se calculan saldos ni se importan filas a la cartera: TOTAL A COBRAR queda pendiente de definición. Los importes conservan su significado de origen; colores, formatos de presentación y estados requieren consulta del Excel. Las fórmulas usan resultados guardados, sin recalcular, y las rutas a PDF son solo texto.
+
+Los archivos de clientes y las extracciones locales están excluidos de Git y del despliegue mediante private-data/ y work/. Nunca agregar datos reales a lib/demo ni public/. Pruebas automáticas cubren coordenadas, filas sin estructura, identificadores con ceros, valores vacíos y lotes distintos. No se ha realizado una prueba visual en navegador.

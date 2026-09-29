@@ -37,6 +37,7 @@ import { AccountDialog, LoginScreen, UsersPanel } from './users-panel';
 import { Agenda, ContractTable, PortfolioSummary } from './portfolio-views';
 import { Brand, initials } from './shared';
 import { LotsView } from './lots-view';
+import { WorkbookReview } from './workbook-review';
 
 const navigation = [
   { label: 'Resumen', icon: LayoutDashboard },
@@ -44,6 +45,7 @@ const navigation = [
   { label: 'Lotes', icon: MapPinned },
   { label: 'Cobranzas', icon: Wallet },
   { label: 'Usuarios', icon: Users },
+  { label: 'Revisar Excel', icon: FileText },
 ];
 
 function Navigation({
@@ -206,15 +208,17 @@ export function CollectionsWorkspace() {
             <div>
               <p className="eyebrow">GESTIÓN EXTRAJUDICIAL</p>
               <h1>
-                {view === 'Resumen'
-                  ? 'Tu cartera, de un vistazo'
-                  : view === 'Contratos'
-                    ? 'Contratos'
-                    : view === 'Cobranzas'
-                      ? 'Seguimiento de cobranzas'
-                      : view === 'Lotes'
-                        ? 'Lotes y saldos'
-                        : 'Tu equipo de trabajo'}
+                {view === 'Revisar Excel'
+                  ? 'Tu base de datos'
+                  : view === 'Resumen'
+                    ? 'Tu cartera, de un vistazo'
+                    : view === 'Contratos'
+                      ? 'Contratos'
+                      : view === 'Cobranzas'
+                        ? 'Seguimiento de cobranzas'
+                        : view === 'Lotes'
+                          ? 'Lotes y saldos'
+                          : 'Tu equipo de trabajo'}
               </h1>
               <p className="subtitle">
                 {view === 'Usuarios'
@@ -226,7 +230,7 @@ export function CollectionsWorkspace() {
                       : 'Organiza, consulta y da seguimiento a cada compromiso.'}
               </p>
             </div>
-            {view !== 'Usuarios' && canManage && (
+            {view !== 'Usuarios' && view !== 'Revisar Excel' && canManage && (
               <button
                 className="primary-button"
                 onClick={() => setEditor('new')}
@@ -242,7 +246,11 @@ export function CollectionsWorkspace() {
                 · Los cambios y archivos se reinician al recargar
               </span>
             </span>
-            <span className="currency-label">Valores en COP</span>
+            <span className="currency-label">
+              {view === 'Revisar Excel'
+                ? 'Importes seg?n el archivo'
+                : 'Valores de ejemplo en COP'}
+            </span>
           </div>
           {notice && (
             <output className="notice">
@@ -252,36 +260,40 @@ export function CollectionsWorkspace() {
               </button>
             </output>
           )}
-          {view !== 'Usuarios' && view !== 'Lotes' && (
-            <section className="metrics" aria-label="Resumen de cartera">
-              <Metric
-                title="Saldo por cobrar"
-                value={money(pending)}
-                caption="Cartera pendiente total"
-                icon={<Wallet size={21} />}
-              />
-              <Metric
-                title="Contratos activos"
-                value={String(active.length).padStart(2, '0')}
-                caption={`${contracts.length} contratos visibles`}
-                icon={<FileText size={21} />}
-              />
-              <Metric
-                title="Contratos vencidos"
-                value={String(overdue.length).padStart(2, '0')}
-                caption={`${money(overdue.reduce((sum, contract) => sum + contract.amount - contract.paid, 0))} por gestionar`}
-                icon={<Clock3 size={21} />}
-                warning
-              />
-              <Metric
-                title="Total recaudado"
-                value={money(collected)}
-                caption="Incluye los abonos de esta sesión"
-                icon={<ArrowDownLeft size={21} />}
-              />
-            </section>
-          )}
-          {view === 'Usuarios' ? (
+          {view !== 'Usuarios' &&
+            view !== 'Lotes' &&
+            view !== 'Revisar Excel' && (
+              <section className="metrics" aria-label="Resumen de cartera">
+                <Metric
+                  title="Saldo por cobrar"
+                  value={money(pending)}
+                  caption="Cartera pendiente total"
+                  icon={<Wallet size={21} />}
+                />
+                <Metric
+                  title="Contratos activos"
+                  value={String(active.length).padStart(2, '0')}
+                  caption={`${contracts.length} contratos visibles`}
+                  icon={<FileText size={21} />}
+                />
+                <Metric
+                  title="Contratos vencidos"
+                  value={String(overdue.length).padStart(2, '0')}
+                  caption={`${money(overdue.reduce((sum, contract) => sum + contract.amount - contract.paid, 0))} por gestionar`}
+                  icon={<Clock3 size={21} />}
+                  warning
+                />
+                <Metric
+                  title="Total recaudado"
+                  value={money(collected)}
+                  caption="Incluye los abonos de esta sesión"
+                  icon={<ArrowDownLeft size={21} />}
+                />
+              </section>
+            )}
+          {view === 'Revisar Excel' ? (
+            <WorkbookReview />
+          ) : view === 'Usuarios' ? (
             <UsersPanel
               users={demo.users}
               currentUser={demo.user}
