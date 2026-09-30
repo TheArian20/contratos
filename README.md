@@ -67,4 +67,4 @@ Pruebas unitarias de preservación de filas/celdas, coordenadas, campos vacíos,
 
 El archivo suministrado se concilia celda a celda antes de importarse. El informe de conciliación y la copia de trabajo permanecen en `private-data/`, excluidos del repositorio. No poner datos, documentos ni credenciales reales en código, migraciones o public/. El paquete publicado contiene código y recursos compilados, no el Excel ni su extracción.
 
-GitHub aún no está conectado; la fuente se versiona en el repositorio de Sites.
+Repositorio público del código: https://github.com/TheArian20/contratos. Los datos y documentos de clientes se almacenan por separado y requieren autenticación en la aplicación.
