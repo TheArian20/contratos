@@ -83,7 +83,7 @@ export function WorkPerson({
             ))}
         </div>
         <div className="work-actions">
-          {admin && (
+          {canEdit && (
             <button
               className="secondary-button"
               onClick={() => onModal({ kind: 'person-edit', person })}
@@ -107,7 +107,9 @@ export function WorkPerson({
           <TabsTrigger value="pagos">Pagos</TabsTrigger>
           <TabsTrigger value="documentos">Documentos</TabsTrigger>
           <TabsTrigger value="gestiones">Seguimiento</TabsTrigger>
-          <TabsTrigger value="historial">Historial de cambios</TabsTrigger>
+          {admin && (
+            <TabsTrigger value="historial">Historial de cambios</TabsTrigger>
+          )}
           <TabsTrigger value="origen">Ver origen</TabsTrigger>
         </TabsList>
         <TabsContent value="cuentas">
@@ -137,7 +139,7 @@ export function WorkPerson({
                     {l.project} · Contrato: {l.contract || 'Por confirmar'}
                   </p>
                 </div>
-                {admin && (
+                {canEdit && (
                   <div className="work-actions">
                     <button
                       className="secondary-button"
@@ -145,14 +147,16 @@ export function WorkPerson({
                     >
                       Corregir lote
                     </button>
-                    <button
-                      className="secondary-button"
-                      onClick={() =>
-                        onModal({ kind: 'account', lot: l, person })
-                      }
-                    >
-                      Agregar concepto
-                    </button>
+                    {admin && (
+                      <button
+                        className="secondary-button"
+                        onClick={() =>
+                          onModal({ kind: 'account', lot: l, person })
+                        }
+                      >
+                        Agregar concepto
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -498,33 +502,41 @@ export function WorkPerson({
               ))}
           </section>
         </TabsContent>
-        <TabsContent value="historial">
-          <section className="panel secure-content">
-            <h2>Quién cambió qué y cuándo</h2>
-            {state.changes
-              .filter((c) => c.person_id === person.id)
-              .sort((a, b) => b.created.localeCompare(a.created))
-              .map((c) => (
-                <details className="change-row" key={c.id}>
-                  <summary>
-                    <strong>{c.entity}</strong> · {c.author} ·{' '}
-                    {new Date(c.created).toLocaleString('es-PE')}
-                  </summary>
-                  <p>Motivo: {c.reason}</p>
-                  <div className="change-comparison">
-                    <div>
-                      <h3>Antes</h3>
-                      <ChangeValues value={c.before} />
+        {admin && (
+          <TabsContent value="historial">
+            <section className="panel secure-content">
+              <h2>Quién cambió qué y cuándo</h2>
+              {state.changes
+                .filter((c) => c.person_id === person.id)
+                .sort((a, b) => b.created.localeCompare(a.created))
+                .map((c) => (
+                  <details className="change-row" key={c.id}>
+                    <summary>
+                      <strong>{c.entity}</strong> · {c.author}
+                      {c.author_username
+                        ? ` (@${c.author_username})`
+                        : ' (registro anterior)'}{' '}
+                      · {new Date(c.created).toLocaleString('es-PE')}
+                    </summary>
+                    <p>Motivo: {c.reason}</p>
+                    {c.author_id && (
+                      <small>Identificador de la cuenta: {c.author_id}</small>
+                    )}
+                    <div className="change-comparison">
+                      <div>
+                        <h3>Antes</h3>
+                        <ChangeValues value={c.before} />
+                      </div>
+                      <div>
+                        <h3>Después</h3>
+                        <ChangeValues value={c.after} />
+                      </div>
                     </div>
-                    <div>
-                      <h3>Después</h3>
-                      <ChangeValues value={c.after} />
-                    </div>
-                  </div>
-                </details>
-              ))}
-          </section>
-        </TabsContent>
+                  </details>
+                ))}
+            </section>
+          </TabsContent>
+        )}
         <TabsContent value="origen">
           <section className="panel secure-content">
             <div className="excel-controls">

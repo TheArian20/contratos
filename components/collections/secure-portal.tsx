@@ -856,9 +856,11 @@ function TeamPanel({ current }: { current: User }) {
       <section className="panel secure-content">
         <h1>Equipo de trabajo</h1>
         <p>
-          Administración gestiona usuarios. Gestor agrega documentos y
-          gestiones. Consulta solo lee. Las cuentas activas ven la base
-          completa.
+          Administración gestiona usuarios y consulta el historial de cambios.
+          Gestor puede corregir personas y lotes existentes, registrar pagos,
+          documentos y gestiones. Consulta solo lee. Las cuentas activas ven la
+          base completa; el historial de modificaciones es exclusivo de
+          Administración.
         </p>
         {error && <p role="alert">{error}</p>}
         {users.map((u) => (

@@ -36,6 +36,13 @@
       "when": 1790725884269,
       "tag": "0004_panoramic_agent_brand",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1790804810271,
+      "tag": "0005_wise_kulan_gath",
+      "breakpoints": true
     }
   ]
 }

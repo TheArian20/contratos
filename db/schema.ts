@@ -194,6 +194,8 @@ export const changes = sqliteTable(
     after: text('after').notNull(),
     reason: text('reason').notNull(),
     author: text('author').notNull(),
+    authorId: text('author_id'),
+    authorUsername: text('author_username'),
     created: text('created').notNull(),
   },
   (t) => [index('idx_changes_person').on(t.personId)],

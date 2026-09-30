@@ -77,6 +77,8 @@ export type WorkState = {
     after: string;
     reason: string;
     author: string;
+    author_id: string | null;
+    author_username: string | null;
     created: string;
   }[];
   documents: {

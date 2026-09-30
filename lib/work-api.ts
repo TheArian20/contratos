@@ -1,7 +1,7 @@
 import { concepts } from './concept-payments';
 import { centsInput, validDay, todayLocal, monthlyPlan } from './work-ledger';
 import { organizeSheet, recordKey, type Dataset } from './source-data';
-type User = { id: string; name: string; role: string };
+type User = { id: string; name: string; username: string; role: string };
 class WorkError extends Error {
   status: number;
   constructor(message: string, status = 400) {
@@ -45,7 +45,13 @@ export async function workRoute(
         'changes',
       ];
       const rows = await DB.batch(
-        tables.map((t) => DB.prepare(`SELECT * FROM ${t}`)),
+        tables.map((t) =>
+          DB.prepare(
+            t === 'changes' && user.role !== 'Administrador'
+              ? 'SELECT * FROM changes WHERE 0'
+              : `SELECT * FROM ${t}`,
+          ),
+        ),
       );
       const docs = await DB.prepare(
         'SELECT id,record_id,name,category,author,created FROM documents',
@@ -94,7 +100,7 @@ export async function workRoute(
       guard = false,
     ) =>
       DB.prepare(
-        `INSERT INTO changes (id,person_id,entity,before,after,reason,author,created) SELECT ?,?,?,?,?,?,?,? ${guard ? 'WHERE changes()=1' : ''}`,
+        `INSERT INTO changes (id,person_id,entity,before,after,reason,author,created,author_id,author_username) SELECT ?,?,?,?,?,?,?,?,?,? ${guard ? 'WHERE changes()=1' : ''}`,
       ).bind(
         crypto.randomUUID(),
         personId,
@@ -104,6 +110,8 @@ export async function workRoute(
         reason,
         user.name,
         now,
+        user.id,
+        user.username,
       );
     const mutate = async (statements: D1PreparedStatement[]) => {
       const results = await DB.batch(statements);
@@ -134,7 +142,7 @@ export async function workRoute(
       });
     }
     if (action === 'desk-person') {
-      admin();
+      if (!d.id) admin();
       const name = required(d.name, 150),
         document = optional(d.document, 40).replace(/\s+/g, '').toUpperCase(),
         phone = optional(d.phone, 80),
@@ -244,7 +252,7 @@ export async function workRoute(
       return respond({ ok: true });
     }
     if (action === 'desk-lot') {
-      admin();
+      if (!d.id) admin();
       const personId = required(d.personId);
       await getPerson(personId);
       const name = required(d.name, 120).toUpperCase(),
