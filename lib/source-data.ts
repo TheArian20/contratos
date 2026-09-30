@@ -16,6 +16,7 @@ export type Dataset = {
   version: 1;
   sourceName: string;
   sourceHash: string;
+  recordIds?: Record<string, string>;
   sheets: RawSheet[];
   styles?: Record<
     string,
@@ -87,6 +88,16 @@ export const sections: Record<
   string,
   { category: string; description: string }
 > = {
+  Hoja1: {
+    category: 'Casos especiales',
+    description:
+      'Ciudad de Dios: personas sin lote vigente o con terreno retirado. Las ubicaciones e importes se conservan como historial; el motivo individual requiere revisión.',
+  },
+  'Hoja 1': {
+    category: 'Casos especiales',
+    description:
+      'Ciudad de Dios: personas sin lote vigente o con terreno retirado. Se conserva su historial.',
+  },
   CHICLAYO: {
     category: 'Proyectos',
     description:
@@ -205,6 +216,7 @@ export function organizeSheet(sheet: RawSheet, sheetIndex: number) {
     const document = person ? find(/DNI/) : '';
     return {
       id: `${sheetIndex}:${row.row}`,
+      situation: recordSituation(sheet.name, row, !!person),
       row: row.row,
       fields,
       person,
@@ -234,6 +246,58 @@ export function organizeSheet(sheet: RawSheet, sheetIndex: number) {
 }
 export type OrganizedSheet = ReturnType<typeof organizeSheet>;
 export type SourceRecord = OrganizedSheet['records'][number];
+export function recordKey(data: Dataset, record: { id: string }) {
+  return data.recordIds?.[record.id] ?? `${data.sourceHash}:${record.id}`;
+}
+export function sheetTitle(name: string) {
+  return /^HOJA\s*1$/.test(clean(name)) ? 'Sin lote · Ciudad de Dios' : name;
+}
+export function recordSituation(
+  sheetName: string,
+  row: RawRow,
+  hasPerson: boolean,
+) {
+  const sheet = clean(sheetName);
+  if (sheet === 'DESCRIPCION DE BASE DE DATOS')
+    return {
+      noLot: false,
+      complainant: false,
+      noCollect: false,
+      review: false,
+      labels: [] as string[],
+    };
+  const values = Object.values(row.cells).map((c) => clean(c.value));
+  const text = values.join(' | ');
+  // Only explicit written statements or the owner's definition of Hoja1.
+  // Colors, blank locations and threats of a future complaint do not set status.
+  const noLot =
+    (hasPerson && /^HOJA\s*1$/.test(sheet)) ||
+    /RESOLUCION SIN LOTES?\b/.test(text);
+  const complainant =
+    sheet === 'DENUNCIANTES' ||
+    values.some(
+      (v) =>
+        /\bDENUNCIANTE(S)?\b|\bDENUNCIATES\b/.test(v) &&
+        !/VA A?\s*DENUNCIAR|NO ES DENUNCIANTE/.test(v),
+    );
+  const noCollect = /\bNO COBRAR\b/.test(text);
+  const review =
+    /VA\s+(?:A\s+)?DENUNCIAR|SE RETIRARA|RETIRO VOLUNTARIO|\bRETIRAD[OA]\b|RETIRARSE|ANULADO/.test(
+      text,
+    ) || sheet === 'RETIRADOS';
+  return {
+    noLot,
+    complainant,
+    noCollect,
+    review,
+    labels: [
+      noLot && 'Sin lote vigente',
+      complainant && 'Denunciante',
+      noCollect && 'No cobrar',
+      review && 'Revisión de administración',
+    ].filter(Boolean) as string[],
+  };
+}
 export function inspectDataset(data: Dataset) {
   if (
     data.version !== 1 ||

@@ -1,3 +1,4 @@
+import { reconcileDataset } from '@/lib/dataset-update';
 import { workRoute } from '@/lib/work-api';
 import { bindings } from '@/lib/server-store';
 import {
@@ -281,6 +282,77 @@ async function handler(request: Request) {
       } else fail(405, 'Método no permitido.');
       return json({ ok: true });
     }
+    if (action === 'dataset-versions' && request.method === 'GET') {
+      const versions = await DB.prepare(
+        'SELECT id,name,created,manifest FROM datasets ORDER BY created DESC',
+      ).all();
+      return json(versions.results);
+    }
+    if (action === 'dataset-review' || action === 'dataset-update') {
+      admin();
+      if (request.method !== 'POST') fail(405, 'Método no permitido.');
+      const input = await body(request, 20 * 1024 * 1024);
+      const incoming = input.dataset as Dataset;
+      inspectDataset(incoming);
+      const current = await DB.prepare(
+        'SELECT id,object_key FROM datasets ORDER BY created DESC LIMIT 1',
+      ).first<{ id: string; object_key: string }>();
+      if (!current) fail(409, 'Primero debe importarse la base inicial.');
+      if (input.previousHash !== current.id)
+        fail(409, 'La base cambió. Vuelve a revisar la actualización.');
+      const original = await FILES.get(current.object_key);
+      if (!original) fail(503, 'La base anterior no está disponible.');
+      if (incoming.sourceHash === current.id)
+        fail(409, 'Este archivo ya es la versión actual.');
+      const result = reconcileDataset(await original.json<Dataset>(), incoming);
+      if (action === 'dataset-review') return json(result.summary);
+      const reason = text(input.reason, 1000);
+      if (input.confirmed !== true || !reason)
+        fail(400, 'Confirma la revisión e indica el motivo.');
+      if (
+        !(await DB.prepare('SELECT value FROM settings WHERE key=?')
+          .bind(`source:${incoming.sourceHash}`)
+          .first())
+      )
+        fail(400, 'Guarda primero el Excel original.');
+      if (
+        await DB.prepare('SELECT id FROM datasets WHERE id=?')
+          .bind(incoming.sourceHash)
+          .first()
+      )
+        fail(409, 'Este archivo ya está archivado; no puede sobrescribirse.');
+      const encoded = JSON.stringify(result.data),
+        sha = await digest(encoded),
+        key = `dataset/${incoming.sourceHash}/${sha}.json`;
+      await FILES.put(key, encoded, {
+        httpMetadata: { contentType: 'application/json' },
+      });
+      const [inserted] = await DB.batch([
+        DB.prepare(
+          'INSERT INTO datasets (id,name,object_key,sha256,created,manifest) SELECT ?,?,?,?,?,? WHERE (SELECT id FROM datasets ORDER BY created DESC LIMIT 1)=?',
+        ).bind(
+          incoming.sourceHash,
+          text(incoming.sourceName, 200),
+          key,
+          sha,
+          new Date().toISOString(),
+          JSON.stringify(inspectDataset(result.data)),
+          current.id,
+        ),
+        DB.prepare(
+          'INSERT INTO audit (id,action,user_id,target,created) SELECT ?,?,?,?,? WHERE changes()=1',
+        ).bind(
+          crypto.randomUUID(),
+          'dataset_updated',
+          user.id,
+          JSON.stringify({ ...result.summary, reason }),
+          new Date().toISOString(),
+        ),
+      ]);
+      if (inserted.meta.changes !== 1)
+        fail(409, 'Otra actualización terminó antes. Revisa nuevamente.');
+      return json({ ok: true, summary: result.summary });
+    }
     if (action === 'source') {
       admin();
       if (request.method === 'PUT') {
@@ -307,8 +379,11 @@ async function handler(request: Request) {
         return json({ hash });
       }
       if (request.method !== 'GET') fail(405, 'Método no permitido.');
-      const dataset = await DB.prepare(
-        'SELECT id FROM datasets ORDER BY created DESC LIMIT 1',
+      const requested = url.searchParams.get('id');
+      const dataset = await (
+        requested
+          ? DB.prepare('SELECT id FROM datasets WHERE id=?').bind(requested)
+          : DB.prepare('SELECT id FROM datasets ORDER BY created DESC LIMIT 1')
       ).first<{ id: string }>();
       if (!dataset) fail(404, 'No hay archivo original.');
       const object = await FILES.get(`original/${dataset.id}.xlsx`);
@@ -371,8 +446,11 @@ async function handler(request: Request) {
         return json({ ok: true, sha256: sha, manifest });
       }
       if (request.method !== 'GET') fail(405, 'Método no permitido.');
-      const dataset = await DB.prepare(
-        'SELECT * FROM datasets ORDER BY created DESC LIMIT 1',
+      const requested = url.searchParams.get('id');
+      const dataset = await (
+        requested
+          ? DB.prepare('SELECT * FROM datasets WHERE id=?').bind(requested)
+          : DB.prepare('SELECT * FROM datasets ORDER BY created DESC LIMIT 1')
       ).first<{ object_key: string; sha256: string }>();
       if (!dataset) return json({ dataset: null });
       const object = await FILES.get(dataset.object_key);

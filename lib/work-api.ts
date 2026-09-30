@@ -1,6 +1,6 @@
 import { concepts } from './concept-payments';
 import { centsInput, validDay, todayLocal, monthlyPlan } from './work-ledger';
-import { organizeSheet, type Dataset } from './source-data';
+import { organizeSheet, recordKey, type Dataset } from './source-data';
 type User = { id: string; name: string; role: string };
 class WorkError extends Error {
   status: number;
@@ -121,21 +121,16 @@ export async function workRoute(
       const obj = await FILES.get(ds.object_key);
       if (!obj) throw new WorkError('No se pudo abrir el origen.');
       const data = await obj.json<Dataset>();
+      const records = data.sheets.flatMap(
+        (sheet, i) => organizeSheet(sheet, i).records,
+      );
       return recordIds.map((key) => {
-        const [hash, sheet, row] = key.split(':');
-        if (
-          hash !== ds.id ||
-          !/^\d+$/.test(sheet ?? '') ||
-          !/^\d+$/.test(row ?? '')
-        )
-          throw new WorkError('Referencia de origen inválida.');
-        const original = data.sheets[Number(sheet)];
-        if (!original) throw new WorkError('Hoja no encontrada.');
-        const r = organizeSheet(original, Number(sheet)).records.find(
-          (r) => r.row === Number(row),
-        );
-        if (!r) throw new WorkError('Fila no encontrada.');
-        return r;
+        const record = records.find((r) => recordKey(data, r) === key);
+        if (!record)
+          throw new WorkError(
+            'Este origen solo existe en una versión anterior. Revisa el archivo actual antes de vincularlo.',
+          );
+        return record;
       });
     }
     if (action === 'desk-person') {

@@ -15,7 +15,12 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table';
-import { organizeSheet, clean, type Dataset } from '@/lib/source-data';
+import {
+  organizeSheet,
+  recordKey,
+  clean,
+  type Dataset,
+} from '@/lib/source-data';
 import {
   accountTotals,
   installmentBalance,
@@ -51,7 +56,7 @@ export function DailyWorkspace({
 }: {
   data: Dataset | null;
   role: string;
-  onSource: (sheet: number, row: number) => void;
+  onSource: (sheet: number, row: number, hash?: string) => void;
 }) {
   const [state, setState] = useState<WorkState>(empty),
     [loading, setLoading] = useState(true),
@@ -109,12 +114,15 @@ export function DailyWorkspace({
             organizeSheet(s, i)
               .records.filter((r) => r.kind === 'Expediente')
               .map((r) => ({
-                id: `${data.sourceHash}:${r.id}`,
+                id: recordKey(data, r),
+                flags: r.situation.labels,
                 sheet: i,
                 row: r.row,
                 name: r.person,
                 document: r.document,
-                lot: r.lot,
+                lot: r.situation.noLot
+                  ? `Sin lote vigente · Historial: ${r.lot}`
+                  : r.lot,
                 contract: r.contract,
                 project: s.name,
               })),
@@ -422,6 +430,7 @@ export function DailyWorkspace({
       {tab === 'Registrar pago' &&
         (canEdit ? (
           <PaymentWizard
+            candidates={candidates}
             key={paymentTarget || 'all'}
             state={state}
             initialAccount={paymentTarget}
@@ -465,7 +474,12 @@ export function DailyWorkspace({
             <TableBody>
               {filteredPending.slice(page * 25, page * 25 + 25).map((c) => (
                 <TableRow key={c.id}>
-                  <TableCell>{c.name}</TableCell>
+                  <TableCell>
+                    {c.name}
+                    <small className="source-pending">
+                      {c.flags?.join(' · ')}
+                    </small>
+                  </TableCell>
                   <TableCell>
                     {c.document || 'Por confirmar'}
                     <small className="record-kind">{c.contract}</small>

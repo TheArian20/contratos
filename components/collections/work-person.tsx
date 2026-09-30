@@ -40,7 +40,7 @@ export function WorkPerson({
   onBack: () => void;
   onModal: (m: WorkModal) => void;
   onPay: (id: string) => void;
-  onSource: (s: number, r: number) => void;
+  onSource: (s: number, r: number, hash?: string) => void;
   onSearch: () => void;
   onRefresh: () => Promise<void>;
 }) {
@@ -73,6 +73,14 @@ export function WorkPerson({
             {person.phone || 'Teléfono por confirmar'}
           </p>
           <p>{person.address || 'Dirección por confirmar'}</p>
+          {candidates
+            .filter((c) => sourceIds.has(c.id) && c.flags?.length)
+            .map((c) => (
+              <p key={c.id} className="source-pending">
+                {c.project}: {c.flags?.join(' · ')}. Revisa el origen antes de
+                gestionar esta cuenta.
+              </p>
+            ))}
         </div>
         <div className="work-actions">
           {admin && (
@@ -541,14 +549,25 @@ export function WorkPerson({
                         'Registro original'}
                     </strong>
                     <p>{candidates.find((c) => c.id === s.record_id)?.lot}</p>
+                    <p className="source-pending">
+                      {candidates
+                        .find((c) => c.id === s.record_id)
+                        ?.flags?.join(' · ')}
+                    </p>
                     <small>{s.reason}</small>
                   </div>
                   <div className="work-actions">
                     <button
                       className="secondary-button"
                       onClick={() => {
-                        const [, sheet, row] = s.record_id.split(':');
-                        onSource(Number(sheet), Number(row));
+                        const candidate = candidates.find(
+                          (c) => c.id === s.record_id,
+                        );
+                        if (candidate) onSource(candidate.sheet, candidate.row);
+                        else {
+                          const [hash, sheet, row] = s.record_id.split(':');
+                          onSource(Number(sheet), Number(row), hash);
+                        }
                       }}
                     >
                       Ver origen

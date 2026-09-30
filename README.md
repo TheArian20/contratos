@@ -32,7 +32,7 @@ La entrada principal es Trabajo diario: Hoy, Personas, Registrar pago y Pendient
 
 TOTAL A COBRAR queda fuera de cálculos por instrucción del propietario. No se presenta como deuda cero ningún saldo desconocido. Los conceptos pueden tener cuotas propias; no se deduce de cada importe si es precio, saldo o pago. Las filas sin encabezados se conservan como anotaciones pendientes de clasificación. Los colores se muestran como referencia visual, sin adjudicar automáticamente estados legales o de pago. Las fórmulas usan su resultado guardado; no se recalculan. El original descargable permite comprobar formatos y contexto completos.
 
-No hay recuperación de contraseña por correo ni conciliación de nuevas versiones de Excel todavía. Las correcciones actualizan las fichas confirmadas, con historial; el Excel original permanece inmutable. No hay una garantía de exactitud de información que ya estaba incompleta o desactualizada en el Excel.
+No hay recuperación de contraseña por correo todavía. Las nuevas versiones de Excel se incorporan desde Actualizar base mediante un paquete preparado, revisión previa y confirmación de Administración. Las correcciones actualizan las fichas confirmadas, con historial; el Excel original permanece inmutable. No hay una garantía de exactitud de información que ya estaba incompleta o desactualizada en el Excel.
 
 ## Desarrollo
 
@@ -68,3 +68,9 @@ Pruebas unitarias de preservación de filas/celdas, coordenadas, campos vacíos,
 El archivo suministrado se concilia celda a celda antes de importarse. El informe de conciliación y la copia de trabajo permanecen en `private-data/`, excluidos del repositorio. No poner datos, documentos ni credenciales reales en código, migraciones o public/. El paquete publicado contiene código y recursos compilados, no el Excel ni su extracción.
 
 Repositorio público del código: https://github.com/TheArian20/contratos. Los datos y documentos de clientes se almacenan por separado y requieren autenticación en la aplicación.
+
+## Actualizaciones y casos especiales
+
+Administración puede revisar y activar paquetes de actualización que contienen el Excel original y sus celdas verificadas. La activación mantiene las versiones anteriores y sus referencias, sin reemplazar personas, pagos, documentos ni saldos confirmados. La correspondencia automática exige filas idénticas únicas o DNI, nombre y contrato coincidentes y únicos dentro del proyecto. Ciudad de Dios y Hoja1 comparten proyecto para conservar referencias de traslados. Las coincidencias dudosas quedan sin vincular y la versión anterior sigue consultable. Una comprobación de versión evita aplicar dos actualizaciones simultáneas sobre el mismo origen; la activación y su auditoría se guardan juntas.
+
+Hoja1 se muestra como Sin lote · Ciudad de Dios por definición del propietario. Se conserva la ubicación histórica. Denunciante, Sin lote vigente, No cobrar y Revisión de administración son etiquetas independientes basadas en texto explícito; los colores, ubicaciones vacías o una futura intención de denunciar no convierten a alguien en denunciante. Las alertas también aparecen en fichas y registro de pagos, sin alterar otros lotes de la misma persona. Los paquetes con datos reales permanecen fuera de Git y requieren una sesión de Administrador para importarse.

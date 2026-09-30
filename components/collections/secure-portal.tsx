@@ -11,6 +11,8 @@ import {
   Download,
   Menu,
 } from 'lucide-react';
+import { DatasetUpdatePanel } from './dataset-update-panel';
+import { WorkSelect } from './work-select';
 import { DailyWorkspace } from './daily-workspace';
 import { Brand, Choice } from './shared';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -31,6 +33,8 @@ import {
 } from '@/components/ui/table';
 import {
   organizeSheet,
+  recordKey,
+  sheetTitle,
   clean,
   cellText,
   groupNames,
@@ -84,6 +88,11 @@ export function SecurePortal() {
     [loading, setLoading] = useState(true),
     [data, setData] = useState<Dataset | null>(null),
     [error, setError] = useState('');
+  const [versions, setVersions] = useState<
+    { id: string; name: string; created: string }[]
+  >([]);
+  const [currentHash, setCurrentHash] = useState('');
+  const [sourceData, setSourceData] = useState<Dataset | null>(null);
   const [view, setView] = useState('Trabajo diario'),
     [active, setActive] = useState<number | null>(null),
     [query, setQuery] = useState(''),
@@ -103,6 +112,8 @@ export function SecurePortal() {
       if (!session.user.mustChange) {
         const result = await api<Dataset>('dataset');
         setData(result.version === 1 ? result : null);
+        setCurrentHash(result.sourceHash);
+        setVersions(await api('dataset-versions'));
       }
     } catch (e) {
       setError(errorText(e));
@@ -120,7 +131,15 @@ export function SecurePortal() {
         setUser(session.user);
         if (!session.user.mustChange) {
           const result = await api<Dataset>('dataset');
-          if (!cancelled) setData(result.version === 1 ? result : null);
+          const versions =
+            await api<{ id: string; name: string; created: string }[]>(
+              'dataset-versions',
+            );
+          if (!cancelled) {
+            setData(result.version === 1 ? result : null);
+            setCurrentHash(result.sourceHash);
+            setVersions(versions);
+          }
         }
       })
       .catch((e) => {
@@ -148,6 +167,16 @@ export function SecurePortal() {
   const matches = useMemo(
     () =>
       records.filter(({ record }) => {
+        if (
+          [
+            'Sin lote vigente',
+            'Denunciante',
+            'No cobrar',
+            'Revisión de administración',
+          ].includes(filter) &&
+          !record.situation.labels.includes(filter)
+        )
+          return false;
         if (filter === 'Expedientes' && record.kind !== 'Expediente')
           return false;
         if (
@@ -167,8 +196,13 @@ export function SecurePortal() {
       }),
     [records, filter, query],
   );
+  const selectionSheets = sourceData
+    ? sourceData.sheets.map(organizeSheet)
+    : sheets;
   const selected = selection
-    ? sheets[selection.sheet]?.records.find((r) => r.row === selection.row)
+    ? selectionSheets[selection.sheet]?.records.find(
+        (r) => r.row === selection.row,
+      )
     : null;
   const choose = (index: number | null) => {
     setActive(index);
@@ -214,6 +248,7 @@ export function SecurePortal() {
         <button
           className={view === 'Trabajo diario' ? 'active' : ''}
           onClick={() => {
+            if (data?.sourceHash !== currentHash) void refresh();
             setView('Trabajo diario');
             setMenu(false);
           }}
@@ -246,7 +281,7 @@ export function SecurePortal() {
                   key={s.name}
                   onClick={() => choose(s.index)}
                 >
-                  <span>{s.name}</span>
+                  <span>{sheetTitle(s.name)}</span>
                   <small>{s.records.length}</small>
                 </button>
               ))}
@@ -255,6 +290,17 @@ export function SecurePortal() {
         })}
         <div className="secure-nav-group">
           <p>Administración</p>
+          {user.role === 'Administrador' && (
+            <button
+              onClick={() => {
+                if (data?.sourceHash !== currentHash) void refresh();
+                setView('Actualizar base');
+                setMenu(false);
+              }}
+            >
+              Actualizar base
+            </button>
+          )}
           {user.role === 'Administrador' && (
             <button
               onClick={() => {
@@ -320,8 +366,22 @@ export function SecurePortal() {
             <DailyWorkspace
               data={data}
               role={user.role}
-              onSource={(sheet, row) => setSelection({ sheet, row })}
+              onSource={(sheet, row, hash) => {
+                if (hash && hash !== data?.sourceHash) {
+                  void api<Dataset>(`dataset?id=${encodeURIComponent(hash)}`)
+                    .then((source) => {
+                      setSourceData(source);
+                      setSelection({ sheet, row });
+                    })
+                    .catch((e) => setError(errorText(e)));
+                } else {
+                  setSourceData(null);
+                  setSelection({ sheet, row });
+                }
+              }}
             />
+          ) : view === 'Actualizar base' ? (
+            <DatasetUpdatePanel current={data} onDone={refresh} />
           ) : view === 'Equipo' ? (
             <TeamPanel current={user} />
           ) : view === 'Cuenta' ? (
@@ -352,7 +412,7 @@ export function SecurePortal() {
                   <a
                     className="secondary-button"
                     download
-                    href="/api/secure/source"
+                    href={`/api/secure/source?id=${data.sourceHash}`}
                   >
                     <Download size={17} /> Excel original
                   </a>
@@ -373,6 +433,43 @@ export function SecurePortal() {
                 </section>
               ) : (
                 <>
+                  <div className="secure-filters">
+                    <label>
+                      Versión del archivo{' '}
+                      <WorkSelect
+                        value={data.sourceHash}
+                        onChange={async (e) => {
+                          try {
+                            const result = await api<Dataset>(
+                              `dataset?id=${encodeURIComponent(e.target.value)}`,
+                            );
+                            setData(result);
+                            setActive(null);
+                            setPage(0);
+                            setSelection(null);
+                            setSourceData(null);
+                          } catch (e) {
+                            setError(errorText(e));
+                          }
+                        }}
+                      >
+                        {versions.map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {v.name}
+                            {v.id === currentHash
+                              ? ' · Actual'
+                              : ' · Histórica'}
+                          </option>
+                        ))}
+                      </WorkSelect>
+                    </label>
+                  </div>
+                  {data.sourceHash !== currentHash && (
+                    <p className="source-pending">
+                      Estás consultando una versión histórica. Trabajo diario
+                      utiliza la base actual.
+                    </p>
+                  )}
                   <div className="secure-summary">
                     <div>
                       <span>Hojas conservadas</span>
@@ -408,7 +505,7 @@ export function SecurePortal() {
                             <FolderClosed size={21} />
                             <small>{s.category}</small>
                           </div>
-                          <h2>{s.name}</h2>
+                          <h2>{sheetTitle(s.name)}</h2>
                           <p>{s.description}</p>
                           <span>
                             {s.records.length} filas de origen{' '}
@@ -451,6 +548,10 @@ export function SecurePortal() {
                         options={[
                           'Todos los registros',
                           'Expedientes',
+                          'Sin lote vigente',
+                          'Denunciante',
+                          'No cobrar',
+                          'Revisión de administración',
                           'Pendientes de identificar',
                           'Anotaciones y encabezados',
                         ]}
@@ -496,6 +597,11 @@ export function SecurePortal() {
                                     'Fila con formato'}
                                 </strong>
                                 <small className="record-kind">{r.kind}</small>
+                                {r.situation.labels.map((label) => (
+                                  <small key={label} className="source-pending">
+                                    {label}
+                                  </small>
+                                ))}
                               </TableCell>
                               <TableCell>
                                 {r.document || 'Identificación pendiente'}
@@ -504,7 +610,9 @@ export function SecurePortal() {
                                 </small>
                               </TableCell>
                               <TableCell>
-                                {r.lot || 'Sin ubicación identificada'}
+                                {r.situation.noLot
+                                  ? `Sin lote vigente · Ubicación histórica: ${r.lot || 'sin detalle'}`
+                                  : r.lot || 'Sin ubicación identificada'}
                               </TableCell>
                               <TableCell>
                                 {sheets[si].name}
@@ -515,9 +623,10 @@ export function SecurePortal() {
                               <TableCell>
                                 <button
                                   className="secondary-button"
-                                  onClick={() =>
-                                    setSelection({ sheet: si, row: r.row })
-                                  }
+                                  onClick={() => {
+                                    setSourceData(null);
+                                    setSelection({ sheet: si, row: r.row });
+                                  }}
                                 >
                                   Abrir ficha
                                 </button>
@@ -567,10 +676,13 @@ export function SecurePortal() {
         <RecordPanel
           key={`${selection.sheet}:${selection.row}`}
           record={selected}
-          sheet={sheets[selection.sheet]}
-          data={data}
+          sheet={selectionSheets[selection.sheet]}
+          data={sourceData ?? data}
           user={user}
-          onClose={() => setSelection(null)}
+          onClose={() => {
+            setSelection(null);
+            setSourceData(null);
+          }}
           onRelated={(document) => {
             choose(null);
             setQuery(document);
@@ -859,7 +971,7 @@ function RecordPanel({
   onClose: () => void;
   onRelated: (document: string) => void;
 }) {
-  const id = `${data.sourceHash}:${record.id}`,
+  const id = recordKey(data, record),
     [extras, setExtras] = useState<Extras>({ documents: [], entries: [] }),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
@@ -933,6 +1045,14 @@ function RecordPanel({
             {sheet.name} · FILA {record.row}
           </p>
           <SheetTitle>{record.person || record.kind}</SheetTitle>
+          {record.situation.labels.length > 0 && (
+            <p className="source-pending">
+              {record.situation.labels.join(' · ')}.{' '}
+              {record.situation.noLot
+                ? 'La ubicación mostrada pertenece al historial; no confirma un lote vigente.'
+                : 'Revisar las observaciones con administración antes de gestionar el cobro.'}
+            </p>
+          )}
           <SheetDescription>
             {record.lot || 'Registro conservado desde el archivo original.'}
           </SheetDescription>

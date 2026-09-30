@@ -7,6 +7,7 @@
 } from '@/lib/work-ledger';
 export type Candidate = {
   id: string;
+  flags?: string[];
   sheet: number;
   row: number;
   name: string;

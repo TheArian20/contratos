@@ -9,14 +9,16 @@ import {
   centsInput,
   type WorkState,
 } from '@/lib/work-ledger';
-import { workError, type WorkSave } from './work-shared';
+import { workError, type WorkSave, type Candidate } from './work-shared';
 export function PaymentWizard({
   state,
+  candidates,
   initialAccount,
   onSave,
   onOpenPerson,
 }: {
   state: WorkState;
+  candidates: Candidate[];
   initialAccount: string;
   onSave: WorkSave;
   onOpenPerson: (id: string) => void;
@@ -32,6 +34,13 @@ export function PaymentWizard({
     [details, setDetails] = useState<Record<string, string>>({}),
     [operation] = useState(() => crypto.randomUUID()),
     [done, setDone] = useState(false);
+  const warnings = candidates
+    .filter((c) =>
+      state.sources.some(
+        (s) => s.person_id === personId && s.record_id === c.id,
+      ),
+    )
+    .flatMap((c) => c.flags ?? []);
   const person = state.people.find((p) => p.id === personId),
     lot = state.lots.find((l) => l.id === lotId),
     account = state.accounts.find((a) => a.id === accountId),
@@ -58,6 +67,13 @@ export function PaymentWizard({
   return (
     <section className="panel payment-wizard">
       <h2>Registrar pago</h2>
+      {warnings.length > 0 && (
+        <p className="source-pending">
+          Avisos de los registros vinculados:{' '}
+          {[...new Set(warnings)].join(' · ')}. Consulta con administración y
+          verifica el lote y concepto antes de registrar un pago.
+        </p>
+      )}
       <ol className="wizard-steps">
         <li className={step === 1 ? 'active' : ''}>
           1. Persona, lote y concepto
