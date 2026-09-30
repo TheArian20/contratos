@@ -105,7 +105,7 @@ async function handler(request: Request) {
         fail(409, 'La cuenta inicial ya está creada.');
       const data = await body(request);
       if (!passwordValid(data.password))
-        fail(400, 'Contraseña de 12 caracteres como mínimo y hasta 72 bytes.');
+        fail(400, 'Contraseña de 8 caracteres como mínimo y hasta 72 bytes.');
       const id = crypto.randomUUID();
       await DB.batch([
         DB.prepare(
@@ -200,7 +200,7 @@ async function handler(request: Request) {
       )
         fail(
           400,
-          'Comprueba tu contraseña actual. La nueva debe tener al menos 12 caracteres y hasta 72 bytes.',
+          'Comprueba tu contraseña actual. La nueva debe tener al menos 8 caracteres y hasta 72 bytes.',
         );
       await DB.batch([
         DB.prepare('UPDATE users SET hash=?,must_change=0 WHERE id=?').bind(
@@ -243,7 +243,7 @@ async function handler(request: Request) {
         )
           fail(
             400,
-            'Revisa nombre, usuario, rol y contraseña (mínimo 12 caracteres).',
+            'Revisa nombre, usuario, rol y contraseña (mínimo 8 caracteres).',
           );
         if (
           await DB.prepare('SELECT id FROM users WHERE username=?')

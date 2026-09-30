@@ -800,12 +800,12 @@ function PasswordForm({ onDone }: { onDone: () => void }) {
         />
       </label>
       <label>
-        Nueva contraseña · mínimo 12 caracteres
+        Nueva contraseña · mínimo 8 caracteres
         <input
           type="password"
           name="password"
           autoComplete="new-password"
-          minLength={12}
+          minLength={8}
           required
         />
       </label>
@@ -815,7 +815,7 @@ function PasswordForm({ onDone }: { onDone: () => void }) {
           type="password"
           name="confirm"
           autoComplete="new-password"
-          minLength={12}
+          minLength={8}
           required
         />
       </label>
@@ -939,7 +939,7 @@ function TeamPanel({ current }: { current: User }) {
           <input
             name="password"
             type="password"
-            minLength={12}
+            minLength={8}
             required
             autoComplete="new-password"
           />

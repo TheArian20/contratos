@@ -91,6 +91,8 @@ test('abonos preserve centavos and require a specific concept, lot, receipt and 
 });
 test('credentials are hashed, byte-limited and never exposed in user DTOs', async () => {
   assert.equal(passwordValid('demo123'), false);
+  assert.equal(passwordValid('12345678'), true);
+  assert.equal(passwordValid('Clave123'), true);
   assert.equal(passwordValid('🙂'.repeat(30)), false);
   const hashed = await hashPassword('Una-clave-segura-123');
   assert.notEqual(hashed, 'Una-clave-segura-123');

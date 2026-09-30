@@ -11,7 +11,7 @@ export async function digest(value: string | ArrayBuffer) {
 export function passwordValid(value: unknown): value is string {
   return (
     typeof value === 'string' &&
-    value.length >= 12 &&
+    value.length >= 8 &&
     new TextEncoder().encode(value).length <= 72
   );
 }
