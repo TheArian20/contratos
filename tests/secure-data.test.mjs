@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import {
   organizeSheet,
+  cellText,
   inspectDataset,
   fieldGroup,
 } from '../lib/source-data.ts';
@@ -118,4 +119,11 @@ test('write requests require matching origin', () => {
     true,
   );
   assert.equal(sameOrigin(new Request('https://site.example/api')), false);
+});
+
+test('T.E is displayed as the owner-defined agreement type while preserving source', () => {
+  const original = cell('T.E');
+  assert.equal(cellText(original), 'Transacción extrajudicial');
+  assert.equal(original.value, 'T.E');
+  assert.equal(fieldGroup('OBSERVACIÓN', original), 'Observaciones');
 });

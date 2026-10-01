@@ -140,6 +140,10 @@ export function DatasetUpdatePanel({
           <h2>{summary.nextName}</h2>
           <dl className="source-fields">
             <div>
+              <dt>Pagados totalmente según marca rosa</dt>
+              <dd>{summary.paidInFull}</dd>
+            </div>
+            <div>
               <dt>Filas con mismos valores y vínculo único</dt>
               <dd>{summary.unchanged}</dd>
             </div>

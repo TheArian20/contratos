@@ -130,7 +130,7 @@ export async function workRoute(
       if (!obj) throw new WorkError('No se pudo abrir el origen.');
       const data = await obj.json<Dataset>();
       const records = data.sheets.flatMap(
-        (sheet, i) => organizeSheet(sheet, i).records,
+        (sheet, i) => organizeSheet(sheet, i, data.styles).records,
       );
       return recordIds.map((key) => {
         const record = records.find((r) => recordKey(data, r) === key);

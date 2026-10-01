@@ -22,7 +22,7 @@ export function reconcileDataset(previous: Dataset, incoming: Dataset) {
     throw new Error('Este archivo ya es la versión actual.');
   const flatten = (data: Dataset) =>
     data.sheets.flatMap((s, i) => {
-      const organized = organizeSheet(s, i);
+      const organized = organizeSheet(s, i, data.styles);
       return organized.records.map((r, index) => ({
         id: r.id,
         key: recordKey(data, r),
@@ -82,6 +82,7 @@ export function reconcileDataset(previous: Dataset, incoming: Dataset) {
     moved,
     newOrUnmatched: after.length - assigned.size,
     archivedUnmatched: before.length - used.size,
+    paidInFull: after.filter((r) => r.situation.paidInFull).length,
     retiredFromCiudad: after.filter((r) => r.situation.retiredFromCiudad)
       .length,
     noLot: after.filter((r) => r.situation.noLot).length,

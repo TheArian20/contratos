@@ -119,3 +119,39 @@ test('Hoja1 keeps historical locations and raw monetary cells without inferring 
   assert.equal(result.records[1].fields[4].cell.value, 15000);
   assert.equal(result.records[0].situation.noLot, false);
 });
+
+test('any pink source cell marks its own record fully paid without fabricating payment amounts', () => {
+  const example = sheet('CIUDAD DE DIOS', [
+    row(2, ['Persona', '001', 'C1', 'A-1', 'Nota']),
+  ]);
+  example.rows[1].cells.E2.style = 'pink';
+  const result = organizeSheet(example, 0, { pink: { fill: '#FF99CC' } });
+  assert.equal(result.records[1].situation.paidInFull, true);
+  assert.equal(result.records[0].situation.paidInFull, false);
+  assert.equal(result.records[1].fields[4].cell.value, 'Nota');
+  example.rows[1].cells.E2.style = 'purple';
+  assert.equal(
+    organizeSheet(example, 0, { purple: { fill: '#CC99FF' } }).records[1]
+      .situation.paidInFull,
+    false,
+  );
+});
+test('multiple observation columns keep separate coordinates, text and order', () => {
+  const s = {
+    name: 'CIUDAD DE DIOS',
+    state: 'visible',
+    merges: [],
+    rows: [
+      row(1, ['NOMBRES Y APELLIDOS', 'OBSERVACIONES', 'OBSERVACIÓN']),
+      row(2, ['Persona', 'Primera nota', 'Segunda nota']),
+    ],
+  };
+  const result = organizeSheet(s, 0).records[1];
+  assert.deepEqual(
+    result.observations.map((f) => [f.coordinate, f.cell.value]),
+    [
+      ['B2', 'Primera nota'],
+      ['C2', 'Segunda nota'],
+    ],
+  );
+});

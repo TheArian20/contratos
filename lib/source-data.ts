@@ -37,8 +37,10 @@ export const clean = (value: string | number | boolean | null | undefined) =>
     .trim();
 export const coordinateColumn = (coordinate: string) =>
   coordinate.replace(/\d/g, '');
-export const cellText = (cell?: RawCell) =>
-  cell?.display ?? String(cell?.value ?? '');
+export const cellText = (cell?: RawCell) => {
+  const text = cell?.display ?? String(cell?.value ?? '');
+  return /^T\.\s*E\.?$/i.test(text.trim()) ? 'Transacción extrajudicial' : text;
+};
 export const groupNames = [
   'Persona y contacto',
   'Contrato y responsables',
@@ -178,7 +180,11 @@ export const sections: Record<
       'Descripciones y leyenda original del Excel. No se usan para asignar automáticamente estados.',
   },
 };
-export function organizeSheet(sheet: RawSheet, sheetIndex: number) {
+export function organizeSheet(
+  sheet: RawSheet,
+  sheetIndex: number,
+  styles: Dataset['styles'] = {},
+) {
   const headerRow = sheet.rows
     .slice(0, 10)
     .find((r) =>
@@ -214,9 +220,24 @@ export function organizeSheet(sheet: RawSheet, sheetIndex: number) {
     const person =
       headerRow && row.row > headerRow.row ? find(/NOMBRES Y APELLIDOS/) : '';
     const document = person ? find(/DNI/) : '';
+    const pink = (cell: RawCell) =>
+      styles?.[cell.style ?? '']?.fill?.toUpperCase() === '#FF99CC';
+    const paidInFull = !!person && fields.some((f) => pink(f.cell));
+    const situation = recordSituation(sheet.name, row, !!person);
+    const observations = fields.filter(
+      (f) => f.group === 'Observaciones' && cellText(f.cell).trim(),
+    );
     return {
       id: `${sheetIndex}:${row.row}`,
-      situation: recordSituation(sheet.name, row, !!person),
+      observations,
+      situation: {
+        ...situation,
+        paidInFull,
+        labels: [
+          ...situation.labels,
+          ...(paidInFull ? ['Pagado totalmente · sin deuda según Excel'] : []),
+        ],
+      },
       row: row.row,
       fields,
       person,

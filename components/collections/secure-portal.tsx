@@ -155,7 +155,10 @@ export function SecurePortal() {
       cancelled = true;
     };
   }, []);
-  const sheets = useMemo(() => data?.sheets.map(organizeSheet) ?? [], [data]),
+  const sheets = useMemo(
+      () => data?.sheets.map((s, i) => organizeSheet(s, i, data.styles)) ?? [],
+      [data],
+    ),
     sheet = active === null ? null : sheets[active];
   const records = useMemo(
     () =>
@@ -169,6 +172,7 @@ export function SecurePortal() {
       records.filter(({ record }) => {
         if (
           [
+            'Pagado totalmente · sin deuda según Excel',
             'Retirado de Ciudad de Dios',
             'Sin lote vigente',
             'Denunciante',
@@ -192,13 +196,14 @@ export function SecurePortal() {
           return false;
         const term = clean(query);
         return (
-          !term || record.fields.some((f) => clean(f.cell.value).includes(term))
+          !term ||
+          record.fields.some((f) => clean(cellText(f.cell)).includes(term))
         );
       }),
     [records, filter, query],
   );
   const selectionSheets = sourceData
-    ? sourceData.sheets.map(organizeSheet)
+    ? sourceData.sheets.map((s, i) => organizeSheet(s, i, sourceData.styles))
     : sheets;
   const selected = selection
     ? selectionSheets[selection.sheet]?.records.find(
@@ -551,6 +556,7 @@ export function SecurePortal() {
                         options={[
                           'Todos los registros',
                           'Expedientes',
+                          'Pagado totalmente · sin deuda según Excel',
                           'Retirado de Ciudad de Dios',
                           'Sin lote vigente',
                           'Denunciante',
@@ -601,6 +607,21 @@ export function SecurePortal() {
                                     'Fila con formato'}
                                 </strong>
                                 <small className="record-kind">{r.kind}</small>
+                                {r.observations.length > 0 && (
+                                  <details>
+                                    <summary>
+                                      {r.observations.length} observación(es)
+                                    </summary>
+                                    {r.observations.map((f) => (
+                                      <p key={f.coordinate}>
+                                        <strong>
+                                          {f.header} · {f.coordinate}:
+                                        </strong>{' '}
+                                        {cellText(f.cell)}
+                                      </p>
+                                    ))}
+                                  </details>
+                                )}
                                 {r.situation.labels.map((label) => (
                                   <small key={label} className="source-pending">
                                     {label}
