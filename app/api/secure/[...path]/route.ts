@@ -264,6 +264,45 @@ async function handler(request: Request) {
           ),
           log(user.id, 'user_created', id),
         ]);
+      } else if (request.method === 'DELETE') {
+        const id = text(data.id);
+        if (id === user.id) fail(400, 'No puedes eliminar tu propia cuenta.');
+        const target = await DB.prepare(
+          'SELECT id,username,name,role,active FROM users WHERE id=?',
+        )
+          .bind(id)
+          .first<{
+            id: string;
+            username: string;
+            name: string;
+            role: string;
+            active: number;
+          }>();
+        if (!target) fail(404, 'Usuario no encontrado.');
+        if (data.confirmUsername !== target.username)
+          fail(400, 'Escribe el usuario exacto para confirmar la eliminación.');
+        const allowed =
+          "(role!='Administrador' OR active=0 OR (SELECT count(*) FROM users WHERE role='Administrador' AND active=1)>1)";
+        const results = await DB.batch([
+          DB.prepare(
+            `DELETE FROM sessions WHERE user_id=? AND EXISTS (SELECT 1 FROM users WHERE id=? AND ${allowed})`,
+          ).bind(id, id),
+          DB.prepare(`DELETE FROM users WHERE id=? AND ${allowed}`).bind(id),
+          DB.prepare(
+            'INSERT INTO audit (id,action,user_id,target,created) SELECT ?,?,?,?,? WHERE changes()=1',
+          ).bind(
+            crypto.randomUUID(),
+            'user_deleted',
+            user.id,
+            JSON.stringify(target),
+            new Date().toISOString(),
+          ),
+        ]);
+        if (results[1].meta.changes !== 1)
+          fail(
+            409,
+            'No se puede eliminar el último administrador activo o la cuenta ya cambió.',
+          );
       } else if (request.method === 'PATCH') {
         const id = text(data.id);
         if (id === user.id) fail(400, 'No puedes desactivar tu propia cuenta.');
@@ -670,3 +709,5 @@ export const GET = handler;
 export const POST = handler;
 export const PUT = handler;
 export const PATCH = handler;
+
+export const DELETE = handler;

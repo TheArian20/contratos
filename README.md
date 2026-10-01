@@ -84,3 +84,5 @@ El historial de cambios solo se consulta como Administrador: se oculta la pesta�
 La marca rosa exacta del archivo (#FF99CC), incluso en una sola celda de la fila, indica pagado totalmente y sin deuda para ese registro, por confirmación del propietario. Se presenta como estado del Excel, sin inventar fechas, importes de pagos ni extenderlo a otros registros de la misma persona. Otras tonalidades, incluido el morado, no se interpretan como pagos. Todas las columnas de observaciones se conservan por separado con sus coordenadas; la lista de expedientes permite desplegarlas y buscarlas.
 
 T.E se muestra como Transacción extrajudicial, conservando el texto abreviado en los valores originales del archivo.
+
+Administración puede eliminar una cuenta desde Equipo escribiendo su usuario exacto en la confirmación. Se borran la cuenta y sus sesiones de forma atómica, conservando las atribuciones históricas y los documentos/pagos. No se permite eliminar la cuenta propia ni el último administrador activo. La eliminación se registra en auditoría con los datos identificadores de la cuenta eliminada.

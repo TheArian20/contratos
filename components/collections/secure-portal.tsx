@@ -13,6 +13,14 @@ import {
 } from 'lucide-react';
 import { DatasetUpdatePanel } from './dataset-update-panel';
 import { WorkSelect } from './work-select';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+} from '@/components/ui/alert-dialog';
 import { DailyWorkspace } from './daily-workspace';
 import { Brand, Choice } from './shared';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -854,6 +862,9 @@ function PasswordForm({ onDone }: { onDone: () => void }) {
   );
 }
 function TeamPanel({ current }: { current: User }) {
+  const [deleting, setDeleting] = useState<User | null>(null);
+  const [confirmation, setConfirmation] = useState('');
+  const [deleteError, setDeleteError] = useState('');
   const [users, setUsers] = useState<User[]>([]),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
@@ -880,6 +891,66 @@ function TeamPanel({ current }: { current: User }) {
   }, []);
   return (
     <div className="secure-team">
+      <AlertDialog
+        open={!!deleting}
+        onOpenChange={(open) => {
+          if (!open && !busy) setDeleting(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar cuenta</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminará el acceso de {deleting?.name} (@{deleting?.username})
+              y se cerrarán sus sesiones. Su historial de modificaciones, pagos
+              y documentos se conserva. Esta cuenta no podrá reactivarse.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <label className="grid gap-2">
+            Escribe {deleting?.username} para confirmar
+            <input
+              className="rounded-lg border p-3"
+              value={confirmation}
+              onChange={(e) => setConfirmation(e.target.value)}
+              autoComplete="off"
+              disabled={busy}
+            />
+          </label>
+          {deleteError && <p role="alert">{deleteError}</p>}
+          <AlertDialogFooter>
+            <button
+              className="secondary-button"
+              disabled={busy}
+              onClick={() => setDeleting(null)}
+            >
+              Cancelar
+            </button>
+            <button
+              className="primary-button"
+              disabled={busy || !deleting || confirmation !== deleting.username}
+              onClick={async () => {
+                if (!deleting) return;
+                setBusy(true);
+                setDeleteError('');
+                try {
+                  await api('users', 'DELETE', {
+                    id: deleting.id,
+                    confirmUsername: confirmation,
+                  });
+                  setDeleting(null);
+                  await load();
+                } catch (e) {
+                  setDeleteError(errorText(e));
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              {busy ? 'Eliminando…' : 'Eliminar definitivamente'}
+            </button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <section className="panel secure-content">
         <h1>Equipo de trabajo</h1>
         <p>
@@ -899,26 +970,39 @@ function TeamPanel({ current }: { current: User }) {
               </small>
             </span>
             {u.id !== current.id && (
-              <button
-                className="secondary-button"
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true);
-                  try {
-                    await api('users', 'PATCH', {
-                      id: u.id,
-                      active: !u.active,
-                    });
-                    await load();
-                  } catch (e) {
-                    setError(errorText(e));
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-              >
-                {u.active ? 'Desactivar' : 'Activar'}
-              </button>
+              <div className="work-actions">
+                <button
+                  className="secondary-button"
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    try {
+                      await api('users', 'PATCH', {
+                        id: u.id,
+                        active: !u.active,
+                      });
+                      await load();
+                    } catch (e) {
+                      setError(errorText(e));
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  {u.active ? 'Desactivar' : 'Activar'}
+                </button>
+                <button
+                  className="secondary-button"
+                  disabled={busy}
+                  onClick={() => {
+                    setDeleting(u);
+                    setConfirmation('');
+                    setDeleteError('');
+                  }}
+                >
+                  Eliminar cuenta
+                </button>
+              </div>
             )}
           </div>
         ))}
