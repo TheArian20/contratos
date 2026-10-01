@@ -43,7 +43,8 @@ test('moved source rows retain document/payment identity despite a new sheet ind
   const result = reconcileDataset(before, incoming);
   assert.equal(result.data.recordIds['1:2'], 'a'.repeat(64) + ':0:3');
   assert.equal(result.summary.moved, 1);
-  assert.equal(result.summary.noLot, 1);
+  assert.equal(result.summary.retiredFromCiudad, 1);
+  assert.equal(result.summary.noLot, 0);
   assert.equal(result.summary.changed, 1);
   assert.equal(before.sheets[0].rows[1].cells.E3.value, '');
 });
@@ -77,7 +78,8 @@ test('lot withdrawal, complaint and collection instruction remain independent', 
     row(2, ['DENUNCIANTE', 'NO COBRAR']),
     true,
   );
-  assert.equal(situation.noLot, true);
+  assert.equal(situation.retiredFromCiudad, true);
+  assert.equal(situation.noLot, false);
   assert.equal(situation.complainant, true);
   assert.equal(situation.noCollect, true);
   const future = recordSituation(
@@ -112,7 +114,8 @@ test('Hoja1 keeps historical locations and raw monetary cells without inferring 
     0,
   );
   assert.equal(result.records[1].lot, 'A-1');
-  assert.equal(result.records[1].situation.noLot, true);
+  assert.equal(result.records[1].situation.retiredFromCiudad, true);
+  assert.equal(result.records[1].situation.noLot, false);
   assert.equal(result.records[1].fields[4].cell.value, 15000);
   assert.equal(result.records[0].situation.noLot, false);
 });

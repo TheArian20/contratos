@@ -169,6 +169,7 @@ export function SecurePortal() {
       records.filter(({ record }) => {
         if (
           [
+            'Retirado de Ciudad de Dios',
             'Sin lote vigente',
             'Denunciante',
             'No cobrar',
@@ -402,7 +403,9 @@ export function SecurePortal() {
               <div className="page-heading">
                 <div>
                   <p className="eyebrow">ARCHIVO DE CONTRATOS Y COBRANZAS</p>
-                  <h1>{sheet?.name ?? 'Tu base, en orden'}</h1>
+                  <h1>
+                    {sheet ? sheetTitle(sheet.name) : 'Tu base, en orden'}
+                  </h1>
                   <p className="subtitle">
                     {sheet?.description ??
                       'Proyectos, expedientes, servicios y anotaciones conservados desde el Excel.'}
@@ -548,6 +551,7 @@ export function SecurePortal() {
                         options={[
                           'Todos los registros',
                           'Expedientes',
+                          'Retirado de Ciudad de Dios',
                           'Sin lote vigente',
                           'Denunciante',
                           'No cobrar',
@@ -610,9 +614,11 @@ export function SecurePortal() {
                                 </small>
                               </TableCell>
                               <TableCell>
-                                {r.situation.noLot
-                                  ? `Sin lote vigente · Ubicación histórica: ${r.lot || 'sin detalle'}`
-                                  : r.lot || 'Sin ubicación identificada'}
+                                {r.situation.retiredFromCiudad
+                                  ? `Retirado de Ciudad de Dios · Ubicación histórica: ${r.lot || 'sin detalle'}`
+                                  : r.situation.noLot
+                                    ? `Sin lote vigente · Ubicación histórica: ${r.lot || 'sin detalle'}`
+                                    : r.lot || 'Sin ubicación identificada'}
                               </TableCell>
                               <TableCell>
                                 {sheets[si].name}
@@ -1050,9 +1056,11 @@ function RecordPanel({
           {record.situation.labels.length > 0 && (
             <p className="source-pending">
               {record.situation.labels.join(' · ')}.{' '}
-              {record.situation.noLot
-                ? 'La ubicación mostrada pertenece al historial; no confirma un lote vigente.'
-                : 'Revisar las observaciones con administración antes de gestionar el cobro.'}
+              {record.situation.retiredFromCiudad
+                ? 'Ya no pertenece a Ciudad de Dios. Los datos de este proyecto son históricos; esto no determina su situación en otros proyectos.'
+                : record.situation.noLot
+                  ? 'La ubicación mostrada pertenece al historial; no confirma un lote vigente.'
+                  : 'Revisar las observaciones con administración antes de gestionar el cobro.'}
             </p>
           )}
           <SheetDescription>

@@ -160,9 +160,13 @@ export function DatasetUpdatePanel({
               <dd>{summary.archivedUnmatched}</dd>
             </div>
             <div>
-              <dt>Sin lote vigente / denunciantes / no cobrar</dt>
+              <dt>
+                Retirados de Ciudad de Dios / sin lote / denunciantes / no
+                cobrar
+              </dt>
               <dd>
-                {summary.noLot} / {summary.complainants} / {summary.noCollect}
+                {summary.retiredFromCiudad} / {summary.noLot} /{' '}
+                {summary.complainants} / {summary.noCollect}
               </dd>
             </div>
           </dl>

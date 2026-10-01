@@ -91,12 +91,12 @@ export const sections: Record<
   Hoja1: {
     category: 'Casos especiales',
     description:
-      'Ciudad de Dios: personas sin lote vigente o con terreno retirado. Las ubicaciones e importes se conservan como historial; el motivo individual requiere revisión.',
+      'Personas retiradas de Ciudad de Dios. Sus ubicaciones, contratos y aportaciones se conservan como historial del proyecto.',
   },
   'Hoja 1': {
     category: 'Casos especiales',
     description:
-      'Ciudad de Dios: personas sin lote vigente o con terreno retirado. Se conserva su historial.',
+      'Personas que ya no pertenecen a Ciudad de Dios. Se conserva su historial del proyecto.',
   },
   CHICLAYO: {
     category: 'Proyectos',
@@ -250,7 +250,7 @@ export function recordKey(data: Dataset, record: { id: string }) {
   return data.recordIds?.[record.id] ?? `${data.sourceHash}:${record.id}`;
 }
 export function sheetTitle(name: string) {
-  return /^HOJA\s*1$/.test(clean(name)) ? 'Sin lote · Ciudad de Dios' : name;
+  return /^HOJA\s*1$/.test(clean(name)) ? 'Retirados de Ciudad de Dios' : name;
 }
 export function recordSituation(
   sheetName: string,
@@ -260,6 +260,7 @@ export function recordSituation(
   const sheet = clean(sheetName);
   if (sheet === 'DESCRIPCION DE BASE DE DATOS')
     return {
+      retiredFromCiudad: false,
       noLot: false,
       complainant: false,
       noCollect: false,
@@ -270,9 +271,8 @@ export function recordSituation(
   const text = values.join(' | ');
   // Only explicit written statements or the owner's definition of Hoja1.
   // Colors, blank locations and threats of a future complaint do not set status.
-  const noLot =
-    (hasPerson && /^HOJA\s*1$/.test(sheet)) ||
-    /RESOLUCION SIN LOTES?\b/.test(text);
+  const retiredFromCiudad = hasPerson && /^HOJA\s*1$/.test(sheet);
+  const noLot = /RESOLUCION SIN LOTES?\b/.test(text);
   const complainant =
     sheet === 'DENUNCIANTES' ||
     values.some(
@@ -286,11 +286,13 @@ export function recordSituation(
       text,
     ) || sheet === 'RETIRADOS';
   return {
+    retiredFromCiudad,
     noLot,
     complainant,
     noCollect,
     review,
     labels: [
+      retiredFromCiudad && 'Retirado de Ciudad de Dios',
       noLot && 'Sin lote vigente',
       complainant && 'Denunciante',
       noCollect && 'No cobrar',

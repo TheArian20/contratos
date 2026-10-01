@@ -82,6 +82,8 @@ export function reconcileDataset(previous: Dataset, incoming: Dataset) {
     moved,
     newOrUnmatched: after.length - assigned.size,
     archivedUnmatched: before.length - used.size,
+    retiredFromCiudad: after.filter((r) => r.situation.retiredFromCiudad)
+      .length,
     noLot: after.filter((r) => r.situation.noLot).length,
     complainants: after.filter((r) => r.situation.complainant).length,
     noCollect: after.filter((r) => r.situation.noCollect).length,

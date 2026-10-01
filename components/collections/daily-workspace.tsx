@@ -120,9 +120,11 @@ export function DailyWorkspace({
                 row: r.row,
                 name: r.person,
                 document: r.document,
-                lot: r.situation.noLot
-                  ? `Sin lote vigente · Historial: ${r.lot}`
-                  : r.lot,
+                lot: r.situation.retiredFromCiudad
+                  ? `Retirado de Ciudad de Dios · Historial: ${r.lot}`
+                  : r.situation.noLot
+                    ? `Sin lote vigente · Historial: ${r.lot}`
+                    : r.lot,
                 contract: r.contract,
                 project: s.name,
               })),
