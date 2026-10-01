@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { Textarea } from '@/components/ui/textarea';
 import type { Dataset } from '@/lib/source-data';
 import type { UpdateSummary } from '@/lib/dataset-update';
 import { workCall, workError } from './work-shared';
@@ -179,16 +180,20 @@ export function DatasetUpdatePanel({
             por nombre ni se convierten importes del Excel en saldos
             confirmados. Las coincidencias dudosas requieren revisión manual.
           </p>
-          <label className="field-label">
+          <label className="mt-6 mb-4 grid gap-2" htmlFor="update-reason">
             Motivo de la actualización
-            <textarea
+            <Textarea
+              id="update-reason"
+              className="min-h-28 border-slate-400 bg-white"
+              placeholder="Ejemplo: Actualización de la base limpia de Ciudad de Dios"
+              aria-describedby="update-help"
               required
               maxLength={1000}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
             />
           </label>
-          <label>
+          <label className="mb-4 flex items-start gap-2">
             <input
               type="checkbox"
               required
@@ -198,6 +203,13 @@ export function DatasetUpdatePanel({
             Revisé el resumen y quiero activar esta versión conservando el
             historial.
           </label>
+          <p id="update-help" className="mb-4 text-sm">
+            {!reason.trim()
+              ? 'Escribe el motivo en el recuadro para habilitar la confirmación.'
+              : !confirmed
+                ? 'Marca la casilla de revisión para continuar.'
+                : 'Todo listo. Pulsa Confirmar actualización para guardar la base.'}
+          </p>
           <div className="work-actions">
             <button
               className="primary-button"
