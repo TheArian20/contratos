@@ -53,9 +53,11 @@ export function DailyWorkspace({
   data,
   role,
   onSource,
+  onBrowse,
 }: {
   data: Dataset | null;
   role: string;
+  onBrowse: (query: string) => void;
   onSource: (sheet: number, row: number, hash?: string) => void;
 }) {
   const [state, setState] = useState<WorkState>(empty),
@@ -181,9 +183,9 @@ export function DailyWorkspace({
       <div className="page-heading">
         <div>
           <p className="eyebrow">TU EQUIPO · TU CARTERA</p>
-          <h1>Tu trabajo diario</h1>
+          <h1>¿Qué necesitas hacer?</h1>
           <p className="subtitle">
-            Busca una persona, consulta sus lotes y registra cada compromiso.
+            Elige una opción. Te guiaremos paso a paso.
           </p>
         </div>
         <button
@@ -200,10 +202,22 @@ export function DailyWorkspace({
       </div>
       <nav className="daily-nav" aria-label="Trabajo diario">
         {[
-          { name: 'Hoy', icon: CalendarDays },
-          { name: 'Personas', icon: UserRound },
-          { name: 'Registrar pago', icon: Wallet },
-          { name: 'Pendientes de revisar', icon: ClipboardCheck },
+          { name: 'Hoy', label: 'Inicio', icon: CalendarDays },
+          { name: 'Personas', label: 'Personas y lotes', icon: UserRound },
+          ...(canEdit
+            ? [
+                {
+                  name: 'Registrar pago',
+                  label: 'Registrar pago',
+                  icon: Wallet,
+                },
+              ]
+            : []),
+          {
+            name: 'Pendientes de revisar',
+            label: 'Revisar fichas',
+            icon: ClipboardCheck,
+          },
         ].map((item) => (
           <button
             key={item.name}
@@ -216,7 +230,7 @@ export function DailyWorkspace({
             }}
           >
             <item.icon size={19} />
-            {item.name}
+            {item.label}
           </button>
         ))}
       </nav>
@@ -228,13 +242,72 @@ export function DailyWorkspace({
       {notice && <output className="notice">{notice}</output>}
       {tab === 'Hoy' && (
         <>
+          <section className="panel easy-start">
+            <h2>Busca a la persona</h2>
+            <p>
+              Escribe su nombre, DNI, lote o contrato. La búsqueda incluye todas
+              las hojas del Excel.
+            </p>
+            <form
+              className="easy-search"
+              onSubmit={(e) => {
+                e.preventDefault();
+                onBrowse(query.trim());
+              }}
+            >
+              <label className="search-field">
+                <Search size={20} />
+                <input
+                  aria-label="Buscar en toda la base"
+                  placeholder="Escribe aquí un nombre, DNI o lote"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </label>
+              <button className="primary-button">Buscar</button>
+            </form>
+            <div className="easy-actions">
+              <button
+                onClick={() => {
+                  setTab('Personas');
+                  setPersonId('');
+                  setQuery('');
+                  setPage(0);
+                }}
+              >
+                <UserRound size={27} />
+                <strong>Ver personas y lotes</strong>
+                <span>Abre una ficha para ver sus datos y cuánto debe.</span>
+              </button>
+              {canEdit && (
+                <button
+                  onClick={() => {
+                    setTab('Registrar pago');
+                    setPaymentTarget('');
+                  }}
+                >
+                  <Wallet size={27} />
+                  <strong>Registrar un pago</strong>
+                  <span>Elige la persona, escribe el importe y confirma.</span>
+                </button>
+              )}
+              <button onClick={() => onBrowse('')}>
+                <ClipboardCheck size={27} />
+                <strong>Contratos y documentos</strong>
+                <span>
+                  Busca a la persona, pulsa Abrir ficha y entra en Documentos.
+                </span>
+              </button>
+            </div>
+          </section>
+          <h2 className="easy-section-title">Lo que necesitas revisar hoy</h2>
           <div className="secure-summary">
             <div>
-              <span>Personas confirmadas</span>
+              <span>Personas con ficha</span>
               <strong>{state.people.length}</strong>
             </div>
             <div>
-              <span>Saldo confirmado</span>
+              <span>Total pendiente confirmado</span>
               <strong>
                 {balances.some((a) => a.balance !== null)
                   ? soles(balances.reduce((n, a) => n + (a.balance ?? 0), 0))
@@ -251,17 +324,17 @@ export function DailyWorkspace({
               <small>Solo vencimientos programados</small>
             </div>
             <div>
-              <span>Gestiones abiertas</span>
+              <span>Tareas pendientes</span>
               <strong>{state.tasks.filter((t) => !t.done).length}</strong>
             </div>
           </div>
           {!state.people.length && (
             <section className="panel onboarding">
-              <h2>Primero, confirma las fichas del equipo</h2>
+              <h2>Empieza buscando una persona</h2>
               <p>
-                Tu Excel está conservado. Revisa la identidad y los registros de
-                cada persona antes de agruparlos. Después podrás confirmar sus
-                lotes, importes y fechas.
+                Puedes consultar el Excel desde el buscador de arriba. Para
+                registrar pagos, Administración debe revisar primero la ficha,
+                el lote y los importes de esa persona.
               </p>
               <button
                 className="primary-button"
@@ -344,7 +417,13 @@ export function DailyWorkspace({
       {tab === 'Personas' && !person && (
         <section className="panel secure-content">
           <div className="excel-controls">
-            <h2>Buscar persona</h2>
+            <h2>Personas con ficha de trabajo</h2>
+            <button
+              className="secondary-button"
+              onClick={() => onBrowse(query)}
+            >
+              Buscar también en el Excel
+            </button>
             <button
               className="secondary-button"
               onClick={() => {
@@ -352,7 +431,7 @@ export function DailyWorkspace({
                 setQuery('');
               }}
             >
-              Confirmar una ficha del Excel
+              Revisar una persona del Excel
             </button>
           </div>
           <label className="search-field">
@@ -431,14 +510,43 @@ export function DailyWorkspace({
       )}
       {tab === 'Registrar pago' &&
         (canEdit ? (
-          <PaymentWizard
-            candidates={candidates}
-            key={paymentTarget || 'all'}
-            state={state}
-            initialAccount={paymentTarget}
-            onSave={save}
-            onOpenPerson={openPerson}
-          />
+          !state.accounts.length ? (
+            <section className="panel secure-content">
+              <h2>Primero necesitamos una cuenta para el pago</h2>
+              <p>
+                Administración debe revisar la persona, confirmar su lote y
+                agregar el concepto que pagará, por ejemplo, agua o lote.
+              </p>
+              <button
+                className="primary-button"
+                onClick={() => {
+                  setTab('Pendientes de revisar');
+                  setQuery('');
+                }}
+              >
+                Revisar una persona
+              </button>
+              <button
+                className="secondary-button"
+                onClick={() => {
+                  setTab('Personas');
+                  setPersonId('');
+                  setQuery('');
+                }}
+              >
+                Ver personas con ficha
+              </button>
+            </section>
+          ) : (
+            <PaymentWizard
+              candidates={candidates}
+              key={paymentTarget || 'all'}
+              state={state}
+              initialAccount={paymentTarget}
+              onSave={save}
+              onOpenPerson={openPerson}
+            />
+          )
         ) : (
           <p className="panel secure-content">
             Tu cuenta permite consultar. Solicita a un gestor el registro de

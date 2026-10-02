@@ -2519,3 +2519,86 @@ h2 {
     gap: 8px;
   }
 }
+
+/* Clear entry points for daily work */
+.easy-start {
+  padding: 24px;
+  margin: 16px 0 24px;
+}
+.easy-start h2 {
+  font-size: 23px;
+  margin-bottom: 8px;
+}
+.easy-start > p {
+  color: #526678;
+  margin-bottom: 18px;
+  line-height: 1.6;
+}
+.easy-search {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.easy-search .search-field {
+  flex: 1;
+  min-width: 0;
+}
+.easy-search input {
+  min-height: 48px;
+  font-size: 17px;
+}
+.easy-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+}
+.easy-actions button {
+  display: grid;
+  gap: 10px;
+  text-align: left;
+  padding: 22px;
+  border: 1px solid #d5e2e7;
+  border-radius: 12px;
+  background: #f4faf9;
+  color: #153c47;
+}
+.easy-actions button:hover {
+  background: #e5f3ef;
+  border-color: #168477;
+}
+.easy-actions button:focus-visible {
+  outline: 3px solid #168477;
+  outline-offset: 3px;
+}
+.easy-actions strong {
+  font-size: 18px;
+}
+.easy-actions span {
+  font-size: 15px;
+  line-height: 1.5;
+  color: #526678;
+}
+.easy-section-title {
+  font-size: 21px;
+  margin: 16px 0;
+}
+.easy-nav-group summary {
+  cursor: pointer;
+  padding: 14px 12px;
+  color: #c4d6e0;
+  font-size: 14px;
+}
+.easy-nav-group summary:focus-visible {
+  outline: 2px solid white;
+}
+@media (max-width: 640px) {
+  .easy-search {
+    flex-direction: column;
+  }
+  .easy-start {
+    padding: 18px;
+  }
+  .easy-actions {
+    grid-template-columns: 1fr;
+  }
+}

@@ -267,13 +267,13 @@ export function SecurePortal() {
             setMenu(false);
           }}
         >
-          Trabajo diario
+          Inicio
         </button>
         <button
           className={view === 'Base' && active === null ? 'active' : ''}
           onClick={() => choose(null)}
         >
-          <FolderClosed size={19} /> Archivo original
+          <FolderClosed size={19} /> Buscar en toda la base
         </button>
         {[
           'Proyectos',
@@ -284,8 +284,12 @@ export function SecurePortal() {
         ].map((category) => {
           const items = sheets.filter((s) => s.category === category);
           return items.length ? (
-            <div className="secure-nav-group" key={category}>
-              <p>{category}</p>
+            <details
+              className="secure-nav-group easy-nav-group"
+              key={category}
+              open={view === 'Base' && sheet?.category === category}
+            >
+              <summary>{category}</summary>
               {items.map((s) => (
                 <button
                   title={s.name}
@@ -299,7 +303,7 @@ export function SecurePortal() {
                   <small>{s.records.length}</small>
                 </button>
               ))}
-            </div>
+            </details>
           ) : null;
         })}
         <div className="secure-nav-group">
@@ -362,7 +366,13 @@ export function SecurePortal() {
             <span>Cartera</span>
             <ChevronRight size={15} />
             <strong>
-              {view === 'Base' ? (sheet?.name ?? 'Archivo original') : view}
+              {view === 'Base'
+                ? sheet
+                  ? sheetTitle(sheet.name)
+                  : 'Buscar en toda la base'
+                : view === 'Trabajo diario'
+                  ? 'Inicio'
+                  : view}
             </strong>
           </div>
           <span className="secure-user">
@@ -380,6 +390,12 @@ export function SecurePortal() {
             <DailyWorkspace
               data={data}
               role={user.role}
+              onBrowse={(term) => {
+                choose(null);
+                setQuery(term);
+                setFilter('Todos los registros');
+                setPage(0);
+              }}
               onSource={(sheet, row, hash) => {
                 if (hash && hash !== data?.sourceHash) {
                   void api<Dataset>(`dataset?id=${encodeURIComponent(hash)}`)
@@ -417,11 +433,11 @@ export function SecurePortal() {
                 <div>
                   <p className="eyebrow">ARCHIVO DE CONTRATOS Y COBRANZAS</p>
                   <h1>
-                    {sheet ? sheetTitle(sheet.name) : 'Tu base, en orden'}
+                    {sheet ? sheetTitle(sheet.name) : 'Buscar en toda la base'}
                   </h1>
                   <p className="subtitle">
                     {sheet?.description ??
-                      'Proyectos, expedientes, servicios y anotaciones conservados desde el Excel.'}
+                      'Escribe un nombre, DNI o lote. Pulsa Abrir ficha para consultar sus datos, observaciones y documentos.'}
                   </p>
                 </div>
                 {user.role === 'Administrador' && data && (
@@ -596,7 +612,7 @@ export function SecurePortal() {
                           <TableHead>Identificación / contrato</TableHead>
                           <TableHead>Lote / ubicación</TableHead>
                           <TableHead>Origen</TableHead>
-                          <TableHead>Detalle</TableHead>
+                          <TableHead>Abrir</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>

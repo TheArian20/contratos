@@ -88,7 +88,7 @@ export function WorkPerson({
               className="secondary-button"
               onClick={() => onModal({ kind: 'person-edit', person })}
             >
-              Corregir datos
+              Editar datos
             </button>
           )}
           {canEdit && (
@@ -96,21 +96,21 @@ export function WorkPerson({
               className="primary-button"
               onClick={() => onModal({ kind: 'task', person })}
             >
-              Anotar gestión
+              Agregar recordatorio
             </button>
           )}
         </div>
       </section>
       <Tabs defaultValue="cuentas">
         <TabsList className="person-tabs">
-          <TabsTrigger value="cuentas">Lotes y cuentas</TabsTrigger>
+          <TabsTrigger value="cuentas">Lotes y deudas</TabsTrigger>
           <TabsTrigger value="pagos">Pagos</TabsTrigger>
           <TabsTrigger value="documentos">Documentos</TabsTrigger>
-          <TabsTrigger value="gestiones">Seguimiento</TabsTrigger>
+          <TabsTrigger value="gestiones">Notas y recordatorios</TabsTrigger>
           {admin && (
             <TabsTrigger value="historial">Historial de cambios</TabsTrigger>
           )}
-          <TabsTrigger value="origen">Ver origen</TabsTrigger>
+          <TabsTrigger value="origen">Ver datos del Excel</TabsTrigger>
         </TabsList>
         <TabsContent value="cuentas">
           <div className="excel-controls">
@@ -145,7 +145,7 @@ export function WorkPerson({
                       className="secondary-button"
                       onClick={() => onModal({ kind: 'lot', lot: l, person })}
                     >
-                      Corregir lote
+                      Editar lote
                     </button>
                     {admin && (
                       <button
@@ -458,7 +458,7 @@ export function WorkPerson({
                   className="primary-button"
                   onClick={() => onModal({ kind: 'task', person })}
                 >
-                  Anotar gestión
+                  Agregar recordatorio
                 </button>
               )}
             </div>
