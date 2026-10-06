@@ -164,7 +164,9 @@ export function SecurePortal() {
     };
   }, []);
   const sheets = useMemo(
-      () => data?.sheets.map((s, i) => organizeSheet(s, i, data.styles)) ?? [],
+      () =>
+        data?.sheets.map((s, i) => organizeSheet(s, i, data.styles, data)) ??
+        [],
       [data],
     ),
     sheet = active === null ? null : sheets[active];
@@ -187,7 +189,9 @@ export function SecurePortal() {
             'No cobrar',
             'Revisión de administración',
           ].includes(filter) &&
-          !record.situation.labels.includes(filter)
+          !(filter === 'Pagado totalmente · sin deuda según Excel'
+            ? record.situation.paidInFull
+            : record.situation.labels.includes(filter))
         )
           return false;
         if (filter === 'Expedientes' && record.kind !== 'Expediente')
@@ -205,13 +209,19 @@ export function SecurePortal() {
         const term = clean(query);
         return (
           !term ||
+          clean(record.lot).includes(term) ||
+          record.observations.some((f) =>
+            clean(cellText(f.cell)).includes(term),
+          ) ||
           record.fields.some((f) => clean(cellText(f.cell)).includes(term))
         );
       }),
     [records, filter, query],
   );
   const selectionSheets = sourceData
-    ? sourceData.sheets.map((s, i) => organizeSheet(s, i, sourceData.styles))
+    ? sourceData.sheets.map((s, i) =>
+        organizeSheet(s, i, sourceData.styles, sourceData),
+      )
     : sheets;
   const selected = selection
     ? selectionSheets[selection.sheet]?.records.find(
@@ -619,7 +629,14 @@ export function SecurePortal() {
                         {matches
                           .slice(page * 25, page * 25 + 25)
                           .map(({ sheet: si, record: r }) => (
-                            <TableRow key={`${si}:${r.row}`}>
+                            <TableRow
+                              key={`${si}:${r.row}`}
+                              style={
+                                r.situation.paidInFull
+                                  ? { background: '#FF99CC', color: '#172b3a' }
+                                  : undefined
+                              }
+                            >
                               <TableCell>
                                 <strong>
                                   {r.person ||
@@ -1190,9 +1207,35 @@ function RecordPanel({
         </SheetHeader>
         <div className="source-sheet-body">
           {error && <p role="alert">{error}</p>}
-          <div className="source-state">
-            Saldo por validar · Sin cálculo automático
+          <div
+            className="source-state"
+            style={
+              record.situation.paidInFull
+                ? { background: '#FF99CC', color: '#172b3a' }
+                : undefined
+            }
+          >
+            {record.situation.paidInFull
+              ? 'Pagado totalmente · Sin deuda'
+              : 'Saldo por validar · Sin cálculo automático'}
           </div>
+          {record.correction && (
+            <section className="source-group">
+              <h3>Datos actualizados</h3>
+              <p>Ubicación: {record.lot}</p>
+              <p>{record.correction.observation}</p>
+              <small>
+                Los datos originales se conservan abajo para consultar el
+                historial.
+              </small>
+            </section>
+          )}
+          {user.role === 'Administrador' && record.correction && (
+            <details>
+              <summary>Historial de esta corrección</summary>
+              <CorrectionHistory id={id} />
+            </details>
+          )}
           {record.document && (
             <button
               className="secondary-button"
@@ -1392,5 +1435,60 @@ function RecordPanel({
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function CorrectionHistory({ id }: { id: string }) {
+  const [rows, setRows] = useState<
+    Array<{
+      created: string;
+      author: string;
+      username: string;
+      reason: string;
+      before: {
+        location: string;
+        observation: string;
+        paidInFull: boolean;
+      } | null;
+      after: { location: string; observation: string; paidInFull: boolean };
+    }>
+  >([]);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let active = true;
+    api<typeof rows>(`record-history?id=${encodeURIComponent(id)}`)
+      .then((r) => {
+        if (active) setRows(r);
+      })
+      .catch((e) => {
+        if (active) setError(errorText(e));
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
+  return (
+    <div>
+      {error && <p role="alert">{error}</p>}
+      {rows.map((r) => (
+        <section key={r.created}>
+          <p>
+            {r.author} ({r.username}) ·{' '}
+            {new Date(r.created).toLocaleString('es-PE')}
+          </p>
+          <p>{r.reason}</p>
+          <p>
+            Anterior:{' '}
+            {r.before
+              ? `${r.before.location} · ${r.before.observation} · ${r.before.paidInFull ? 'Sin deuda' : 'Por revisar'}`
+              : 'Datos del Excel original'}
+          </p>
+          <p>
+            Actualizado: {r.after.location} · {r.after.observation} ·{' '}
+            {r.after.paidInFull ? 'Sin deuda' : 'Por revisar'}
+          </p>
+        </section>
+      ))}
+    </div>
   );
 }

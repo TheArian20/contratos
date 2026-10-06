@@ -494,6 +494,19 @@ async function handler(request: Request) {
       if (!dataset) return json({ dataset: null });
       const object = await FILES.get(dataset.object_key);
       if (!object) fail(503, 'La base no está disponible.');
+      if (!requested) {
+        const data = await object.json<Dataset>();
+        const corrections = await DB.prepare(
+          "SELECT key,value FROM settings WHERE key LIKE 'record-correction:%'",
+        ).all<{ key: string; value: string }>();
+        data.corrections = Object.fromEntries(
+          corrections.results.map((r) => [
+            r.key.slice('record-correction:'.length),
+            JSON.parse(r.value),
+          ]),
+        );
+        return json(data);
+      }
       return new Response(object.body, {
         headers: {
           'Content-Type': 'application/json',
@@ -517,6 +530,83 @@ async function handler(request: Request) {
       const data = await object.json<Dataset>();
       if (!data.sheets[Number(sheet)]?.rows.some((r) => r.row === Number(row)))
         fail(404, 'Fila no encontrada.');
+    }
+    if (action === 'record-correction') {
+      admin();
+      if (request.method !== 'POST') fail(405, 'Método no permitido.');
+      const input = await body(request);
+      const id = text(input.recordId);
+      await validRecord(id);
+      const location = text(input.location, 150),
+        observation = text(input.observation, 1500),
+        reason = text(input.reason, 1500);
+      if (
+        !location ||
+        !observation ||
+        !reason ||
+        typeof input.paidInFull !== 'boolean' ||
+        !Number.isInteger(input.version) ||
+        input.version < 0
+      )
+        fail(400, 'Completa ubicación, observación, estado y motivo.');
+      const key = `record-correction:${id}`;
+      const old = await DB.prepare('SELECT value FROM settings WHERE key=?')
+        .bind(key)
+        .first<{ value: string }>();
+      const before = old ? JSON.parse(old.value) : null;
+      if ((before?.version ?? 0) !== input.version)
+        fail(409, 'El expediente cambió. Actualiza antes de guardar.');
+      const after = {
+        location,
+        observation,
+        paidInFull: input.paidInFull,
+        version: input.version + 1,
+      };
+      const mutation = old
+        ? DB.prepare(
+            'UPDATE settings SET value=? WHERE key=? AND value=?',
+          ).bind(JSON.stringify(after), key, old.value)
+        : DB.prepare(
+            'INSERT OR IGNORE INTO settings (key,value) VALUES (?,?)',
+          ).bind(key, JSON.stringify(after));
+      const result = await DB.batch([
+        mutation,
+        DB.prepare(
+          'INSERT INTO audit (id,action,user_id,target,created) SELECT ?,?,?,?,? WHERE changes()=1',
+        ).bind(
+          crypto.randomUUID(),
+          'record_corrected',
+          user.id,
+          JSON.stringify({
+            recordId: id,
+            before,
+            after,
+            reason,
+            author: user.name,
+            username: user.username,
+          }),
+          new Date().toISOString(),
+        ),
+      ]);
+      if (result[0].meta.changes !== 1)
+        fail(409, 'El expediente cambió. Actualiza antes de guardar.');
+      return json(after);
+    }
+    if (action === 'record-history' && !write) {
+      admin();
+      const id = url.searchParams.get('id') ?? '';
+      await validRecord(id);
+      const rows = await DB.prepare(
+        "SELECT target,created FROM audit WHERE action='record_corrected' AND json_extract(target,'$.recordId')=? ORDER BY created DESC",
+      )
+        .bind(id)
+        .all<{ target: string; created: string }>();
+      return json(
+        rows.results.map((r) => ({
+          ...JSON.parse(r.target),
+          created: r.created,
+        })),
+      );
     }
     if (action === 'record' && !write) {
       const id = url.searchParams.get('id') ?? '';

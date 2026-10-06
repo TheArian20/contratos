@@ -113,7 +113,7 @@ export function DailyWorkspace({
     () =>
       data
         ? data.sheets.flatMap((s, i) =>
-            organizeSheet(s, i, data.styles)
+            organizeSheet(s, i, data.styles, data)
               .records.filter((r) => r.kind === 'Expediente')
               .map((r) => ({
                 id: recordKey(data, r),

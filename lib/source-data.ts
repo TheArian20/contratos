@@ -13,6 +13,15 @@ export type RawSheet = {
   merges: string[];
 };
 export type Dataset = {
+  corrections?: Record<
+    string,
+    {
+      location: string;
+      observation: string;
+      paidInFull: boolean;
+      version: number;
+    }
+  >;
   version: 1;
   sourceName: string;
   sourceHash: string;
@@ -184,6 +193,7 @@ export function organizeSheet(
   sheet: RawSheet,
   sheetIndex: number,
   styles: Dataset['styles'] = {},
+  data?: Dataset,
 ) {
   const headerRow = sheet.rows
     .slice(0, 10)
@@ -227,22 +237,43 @@ export function organizeSheet(
     const observations = fields.filter(
       (f) => f.group === 'Observaciones' && cellText(f.cell).trim(),
     );
+    const correction =
+      data?.corrections?.[recordKey(data, { id: `${sheetIndex}:${row.row}` })];
+    if (correction?.observation)
+      observations.push({
+        coordinate: 'Actualización',
+        header: 'Observación actualizada',
+        group: 'Observaciones',
+        cell: {
+          value: correction.observation,
+          type: 's',
+          style: null,
+          formula: null,
+        },
+      });
     return {
+      correction,
       id: `${sheetIndex}:${row.row}`,
       observations,
       situation: {
         ...situation,
-        paidInFull,
+        paidInFull: correction?.paidInFull ?? paidInFull,
         labels: [
           ...situation.labels,
-          ...(paidInFull ? ['Pagado totalmente · sin deuda según Excel'] : []),
+          ...(correction?.paidInFull
+            ? ['Pagado totalmente · sin deuda confirmado']
+            : !correction && paidInFull
+              ? ['Pagado totalmente · sin deuda según Excel']
+              : []),
         ],
       },
       row: row.row,
       fields,
       person,
       document,
-      lot: person ? find(/UBICACION|MZ|^LTE$|LUGAR Y MEDIDA DE LOTE/) : '',
+      lot:
+        correction?.location ??
+        (person ? find(/UBICACION|MZ|^LTE$|LUGAR Y MEDIDA DE LOTE/) : ''),
       contract: person ? find(/CONTRATO|SOCIO/) : '',
       kind:
         headerRow && row.row === headerRow.row
