@@ -13,6 +13,12 @@ import {
 } from 'lucide-react';
 import { DatasetUpdatePanel } from './dataset-update-panel';
 import { WorkSelect } from './work-select';
+import { RecordEditor, ChangeSummary } from './record-editor';
+import {
+  editFields,
+  recordValues,
+  type EditValues,
+} from '@/lib/record-editing';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -209,6 +215,9 @@ export function SecurePortal() {
         const term = clean(query);
         return (
           !term ||
+          Object.values(recordValues(record)).some((v) =>
+            clean(String(v)).includes(term),
+          ) ||
           clean(record.lot).includes(term) ||
           record.observations.some((f) =>
             clean(cellText(f.cell)).includes(term),
@@ -747,6 +756,24 @@ export function SecurePortal() {
           sheet={selectionSheets[selection.sheet]}
           data={sourceData ?? data}
           user={user}
+          editable={!sourceData && data.sourceHash === currentHash}
+          onSaved={(id, correction) =>
+            setData((previous) =>
+              previous
+                ? {
+                    ...previous,
+                    corrections: { ...previous.corrections, [id]: correction },
+                  }
+                : previous,
+            )
+          }
+          onReload={async () => {
+            const next = await api<Dataset>('dataset');
+            setData(next);
+            setCurrentHash(next.sourceHash);
+            setSelection(null);
+            setSourceData(null);
+          }}
           onClose={() => {
             setSelection(null);
             setSourceData(null);
@@ -1109,6 +1136,9 @@ function RecordPanel({
   user,
   onClose,
   onRelated,
+  editable,
+  onSaved,
+  onReload,
 }: {
   record: SourceRecord;
   sheet: OrganizedSheet;
@@ -1116,7 +1146,15 @@ function RecordPanel({
   user: User;
   onClose: () => void;
   onRelated: (document: string) => void;
+  editable: boolean;
+  onSaved: (
+    id: string,
+    correction: NonNullable<Dataset['corrections']>[string],
+  ) => void;
+  onReload: () => Promise<void>;
 }) {
+  const [editing, setEditing] = useState(false),
+    [notice, setNotice] = useState('');
   const id = recordKey(data, record),
     [extras, setExtras] = useState<Extras>({ documents: [], entries: [] }),
     [error, setError] = useState(''),
@@ -1207,6 +1245,26 @@ function RecordPanel({
         </SheetHeader>
         <div className="source-sheet-body">
           {error && <p role="alert">{error}</p>}
+          {notice && <output className="edit-success">{notice}</output>}
+          {editable &&
+            user.role !== 'Consulta' &&
+            record.kind === 'Expediente' && (
+              <button
+                className="primary-button"
+                onClick={() => {
+                  setNotice('');
+                  setEditing(true);
+                }}
+              >
+                Editar datos
+              </button>
+            )}
+          {!editable && (
+            <p>
+              Versión histórica: abre el expediente en la base actual para
+              editarlo.
+            </p>
+          )}
           <div
             className="source-state"
             style={
@@ -1222,8 +1280,19 @@ function RecordPanel({
           {record.correction && (
             <section className="source-group">
               <h3>Datos actualizados</h3>
-              <p>Ubicación: {record.lot}</p>
-              <p>{record.correction.observation}</p>
+              <dl className="source-fields">
+                {editFields.map((f) => (
+                  <div key={f.key}>
+                    <dt>{f.label}</dt>
+                    <dd>{recordValues(record)[f.key] || 'Sin dato'}</dd>
+                  </div>
+                ))}
+              </dl>
+              {record.observations.map((f) => (
+                <p key={f.coordinate}>
+                  <strong>{f.header}:</strong> {cellText(f.cell)}
+                </p>
+              ))}
               <small>
                 Los datos originales se conservan abajo para consultar el
                 historial.
@@ -1233,7 +1302,7 @@ function RecordPanel({
           {user.role === 'Administrador' && record.correction && (
             <details>
               <summary>Historial de esta corrección</summary>
-              <CorrectionHistory id={id} />
+              <CorrectionHistory key={record.correction.version} id={id} />
             </details>
           )}
           {record.document && (
@@ -1433,6 +1502,29 @@ function RecordPanel({
             </TabsContent>
           </Tabs>
         </div>
+        {editing && (
+          <RecordEditor
+            record={record}
+            project={sheet.name}
+            admin={user.role === 'Administrador'}
+            onClose={() => setEditing(false)}
+            onReload={onReload}
+            onSave={async (values, newObservation, reason) => {
+              const correction = await api<
+                NonNullable<Dataset['corrections']>[string]
+              >('record-correction', 'POST', {
+                ...values,
+                newObservation,
+                reason,
+                recordId: id,
+                sourceHash: data.sourceHash,
+                version: record.correction?.version ?? 0,
+              });
+              onSaved(id, correction);
+              setNotice('Cambios guardados correctamente.');
+            }}
+          />
+        )}
       </SheetContent>
     </Sheet>
   );
@@ -1445,12 +1537,9 @@ function CorrectionHistory({ id }: { id: string }) {
       author: string;
       username: string;
       reason: string;
-      before: {
-        location: string;
-        observation: string;
-        paidInFull: boolean;
-      } | null;
-      after: { location: string; observation: string; paidInFull: boolean };
+      before: Partial<EditValues> | null;
+      after: Partial<EditValues>;
+      newObservation?: string;
     }>
   >([]);
   const [error, setError] = useState('');
@@ -1477,16 +1566,13 @@ function CorrectionHistory({ id }: { id: string }) {
             {new Date(r.created).toLocaleString('es-PE')}
           </p>
           <p>{r.reason}</p>
-          <p>
-            Anterior:{' '}
-            {r.before
-              ? `${r.before.location} · ${r.before.observation} · ${r.before.paidInFull ? 'Sin deuda' : 'Por revisar'}`
-              : 'Datos del Excel original'}
-          </p>
-          <p>
-            Actualizado: {r.after.location} · {r.after.observation} ·{' '}
-            {r.after.paidInFull ? 'Sin deuda' : 'Por revisar'}
-          </p>
+          {!r.before && <p>Anterior: datos del Excel original.</p>}
+          <ChangeSummary before={r.before ?? {}} after={r.after} />
+          {r.newObservation && (
+            <p>
+              <strong>Observación añadida:</strong> {r.newObservation}
+            </p>
+          )}
         </section>
       ))}
     </div>

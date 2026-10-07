@@ -128,7 +128,7 @@ export function DailyWorkspace({
                     ? `Sin lote vigente · Historial: ${r.lot}`
                     : r.lot,
                 contract: r.contract,
-                project: s.name,
+                project: r.project,
               })),
           )
         : [],

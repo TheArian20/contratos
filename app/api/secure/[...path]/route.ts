@@ -10,7 +10,17 @@ import {
   sameOrigin,
   sessionToken,
 } from '@/lib/security';
-import { inspectDataset, type Dataset } from '@/lib/source-data';
+import {
+  inspectDataset,
+  organizeSheet,
+  recordKey,
+  type Dataset,
+} from '@/lib/source-data';
+import {
+  recordValues,
+  validateEdit,
+  editDifferences,
+} from '@/lib/record-editing';
 import { paymentInput } from '@/lib/concept-payments';
 import { attachmentMime } from '@/lib/attachments';
 
@@ -532,43 +542,75 @@ async function handler(request: Request) {
         fail(404, 'Fila no encontrada.');
     }
     if (action === 'record-correction') {
-      admin();
+      editor();
       if (request.method !== 'POST') fail(405, 'Método no permitido.');
       const input = await body(request);
       const id = text(input.recordId);
-      await validRecord(id);
-      const location = text(input.location, 150),
-        observation = text(input.observation, 1500),
-        reason = text(input.reason, 1500);
-      if (
-        !location ||
-        !observation ||
-        !reason ||
-        typeof input.paidInFull !== 'boolean' ||
-        !Number.isInteger(input.version) ||
-        input.version < 0
-      )
-        fail(400, 'Completa ubicación, observación, estado y motivo.');
+      const latest = await DB.prepare(
+        'SELECT id,object_key FROM datasets ORDER BY created DESC LIMIT 1',
+      ).first<{ id: string; object_key: string }>();
+      if (!latest || input.sourceHash !== latest.id)
+        fail(409, 'La base cambió. Recarga los datos antes de guardar.');
+      const object = await FILES.get(latest.object_key);
+      if (!object) fail(503, 'No se pudo abrir el expediente.');
+      const source = await object.json<Dataset>();
       const key = `record-correction:${id}`;
       const old = await DB.prepare('SELECT value FROM settings WHERE key=?')
         .bind(key)
         .first<{ value: string }>();
-      const before = old ? JSON.parse(old.value) : null;
-      if ((before?.version ?? 0) !== input.version)
-        fail(409, 'El expediente cambió. Actualiza antes de guardar.');
+      const previous = old ? JSON.parse(old.value) : null;
+      if (!Number.isSafeInteger(input.version) || input.version < 0)
+        fail(400, 'Versión inválida.');
+      if ((previous?.version ?? 0) !== input.version)
+        fail(
+          409,
+          'Otra persona modificó este expediente. Recarga los datos y revisa los cambios.',
+        );
+      source.corrections = previous ? { [id]: previous } : {};
+      const record = source.sheets
+        .flatMap((s, i) => organizeSheet(s, i, source.styles, source).records)
+        .find((r) => recordKey(source, r) === id);
+      if (!record || record.kind !== 'Expediente')
+        fail(404, 'No se encontró un expediente vigente con esos datos.');
+      const before = recordValues(record);
+      if (
+        user.role !== 'Administrador' &&
+        input.paidInFull !== before.paidInFull
+      )
+        fail(403, 'Solo Administración puede cambiar el estado de deuda.');
+      let values;
+      try {
+        values = validateEdit(input, before, user.role === 'Administrador');
+      } catch (e) {
+        fail(400, e instanceof Error ? e.message : 'Revisa los datos.');
+      }
+      const reason = text(input.reason, 1500),
+        note = text(input.newObservation, 1500);
+      if (
+        !reason ||
+        typeof input.reason !== 'string' ||
+        input.reason.trim().length > 1500 ||
+        (input.newObservation !== undefined &&
+          (typeof input.newObservation !== 'string' ||
+            input.newObservation.length > 1500))
+      )
+        fail(400, 'Escribe un motivo y observación de hasta 1500 caracteres.');
+      if (!editDifferences(before, values).length && !note)
+        fail(400, 'No hay cambios para guardar.');
       const after = {
-        location,
-        observation,
-        paidInFull: input.paidInFull,
+        ...previous,
+        ...values,
+        observation: previous?.observation ?? '',
+        notes: [...(previous?.notes ?? []), ...(note ? [note] : [])],
         version: input.version + 1,
       };
       const mutation = old
         ? DB.prepare(
-            'UPDATE settings SET value=? WHERE key=? AND value=?',
-          ).bind(JSON.stringify(after), key, old.value)
+            'UPDATE settings SET value=? WHERE key=? AND value=? AND (SELECT id FROM datasets ORDER BY created DESC LIMIT 1)=?',
+          ).bind(JSON.stringify(after), key, old.value, latest.id)
         : DB.prepare(
-            'INSERT OR IGNORE INTO settings (key,value) VALUES (?,?)',
-          ).bind(key, JSON.stringify(after));
+            'INSERT OR IGNORE INTO settings (key,value) SELECT ?,? WHERE (SELECT id FROM datasets ORDER BY created DESC LIMIT 1)=?',
+          ).bind(key, JSON.stringify(after), latest.id);
       const result = await DB.batch([
         mutation,
         DB.prepare(
@@ -582,6 +624,7 @@ async function handler(request: Request) {
             before,
             after,
             reason,
+            newObservation: note,
             author: user.name,
             username: user.username,
           }),
@@ -589,7 +632,10 @@ async function handler(request: Request) {
         ),
       ]);
       if (result[0].meta.changes !== 1)
-        fail(409, 'El expediente cambió. Actualiza antes de guardar.');
+        fail(
+          409,
+          'Otra persona modificó el expediente o la base. Recarga los datos antes de guardar.',
+        );
       return json(after);
     }
     if (action === 'record-history' && !write) {

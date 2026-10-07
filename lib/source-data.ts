@@ -20,6 +20,15 @@ export type Dataset = {
       observation: string;
       paidInFull: boolean;
       version: number;
+      name?: string;
+      document?: string;
+      phone?: string;
+      address?: string;
+      project?: string;
+      block?: string;
+      plot?: string;
+      contract?: string;
+      notes?: string[];
     }
   >;
   version: 1;
@@ -251,6 +260,14 @@ export function organizeSheet(
           formula: null,
         },
       });
+    for (const [i, note] of (correction?.notes ?? []).entries()) {
+      observations.push({
+        coordinate: `Nota ${i + 1}`,
+        header: 'Observación añadida',
+        group: 'Observaciones',
+        cell: { value: note, type: 's', style: null, formula: null },
+      });
+    }
     return {
       correction,
       id: `${sheetIndex}:${row.row}`,
@@ -269,12 +286,18 @@ export function organizeSheet(
       },
       row: row.row,
       fields,
-      person,
-      document,
+      person: correction?.name ?? person,
+      document: correction?.document ?? document,
+      phone: correction?.phone ?? find(/CELULAR|TELEFONO/),
+      address: correction?.address ?? find(/^DIRECCION/),
+      project:
+        correction?.project ?? (find(/^PROYECTO|^URBANIZACION/) || sheet.name),
+      block: correction?.block ?? find(/^MANZANA$|^MZ\.?$/),
+      plot: correction?.plot ?? find(/^LTE\.?$|^N[°º]?\.? DE LOTE$/),
       lot:
         correction?.location ??
         (person ? find(/UBICACION|MZ|^LTE$|LUGAR Y MEDIDA DE LOTE/) : ''),
-      contract: person ? find(/CONTRATO|SOCIO/) : '',
+      contract: correction?.contract ?? (person ? find(/CONTRATO|SOCIO/) : ''),
       kind:
         headerRow && row.row === headerRow.row
           ? 'Encabezado'

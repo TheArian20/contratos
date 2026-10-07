@@ -2582,6 +2582,61 @@ h2 {
   font-size: 21px;
   margin: 16px 0;
 }
+.record-edit-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.record-edit-fields legend {
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+.record-edit-fields label {
+  min-width: 0;
+}
+.record-editor select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #bacbd7;
+  border-radius: 8px;
+  padding: 10px;
+  background: white;
+}
+.edit-differences {
+  margin: 12px 0;
+}
+.edit-differences > div {
+  border-bottom: 1px solid #dce5ec;
+  padding: 12px 0;
+  overflow-wrap: anywhere;
+}
+.edit-differences dt {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.edit-differences dd {
+  margin: 5px 0;
+  white-space: pre-wrap;
+}
+.edit-differences dd span {
+  display: inline-block;
+  min-width: 60px;
+  color: #526678;
+}
+.edit-success {
+  padding: 12px;
+  border-radius: 8px;
+  background: #e5f3ef;
+  color: #13584e;
+}
+@media (max-width: 640px) {
+  .record-edit-fields {
+    grid-template-columns: 1fr;
+  }
+}
 .easy-nav-group summary {
   cursor: pointer;
   padding: 14px 12px;
