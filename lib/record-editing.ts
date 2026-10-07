@@ -1,4 +1,5 @@
 import type { SourceRecord } from './source-data';
+import { colorLabel, validColor } from './record-colors.ts';
 
 export const editFields = [
   { key: 'name', label: 'Nombre completo / titulares', max: 250 },
@@ -12,7 +13,10 @@ export const editFields = [
   { key: 'contract', label: 'Número de contrato / socio', max: 150 },
 ] as const;
 export type EditKey = (typeof editFields)[number]['key'];
-export type EditValues = Record<EditKey, string> & { paidInFull: boolean };
+export type EditValues = Record<EditKey, string> & {
+  paidInFull: boolean;
+  color?: string;
+};
 export function recordValues(record: SourceRecord): EditValues {
   return {
     name: record.person,
@@ -25,6 +29,7 @@ export function recordValues(record: SourceRecord): EditValues {
     plot: record.plot,
     contract: record.contract,
     paidInFull: record.situation.paidInFull,
+    color: record.color,
   };
 }
 export function editDifferences(
@@ -44,6 +49,12 @@ export function editDifferences(
       before: before.paidInFull ? 'Sin deuda' : 'Por revisar',
       after: after.paidInFull ? 'Sin deuda' : 'Por revisar',
     });
+  if (after.color !== undefined && before.color !== after.color)
+    rows.push({
+      label: 'Color de etiqueta',
+      before: colorLabel(before.color),
+      after: colorLabel(after.color),
+    });
   return rows;
 }
 export function validateEdit(
@@ -52,6 +63,11 @@ export function validateEdit(
   admin: boolean,
 ): EditValues {
   const result = { ...before };
+  if (input.color !== undefined) {
+    if (!validColor(input.color))
+      throw new Error('Selecciona un color válido.');
+    result.color = input.color;
+  }
   for (const field of editFields) {
     const value = input[field.key];
     if (typeof value !== 'string' || value.trim().length > field.max)

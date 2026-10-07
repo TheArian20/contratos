@@ -1,3 +1,5 @@
+import { loadRecordCorrections } from './record-corrections-store';
+import { validColor } from './record-colors';
 import { concepts } from './concept-payments';
 import { centsInput, validDay, todayLocal, monthlyPlan } from './work-ledger';
 import { organizeSheet, recordKey, type Dataset } from './source-data';
@@ -59,6 +61,19 @@ export async function workRoute(
       const notes = await DB.prepare(
         'SELECT id,record_id,kind,body,author,created FROM entries',
       ).all();
+      const colors = await DB.prepare(
+        "SELECT key,value FROM settings WHERE key LIKE 'person-color:%'",
+      ).all<{ key: string; value: string }>();
+      const colorMap = Object.fromEntries(
+        colors.results.map((r) => [
+          r.key.slice('person-color:'.length),
+          r.value,
+        ]),
+      );
+      rows[0].results = rows[0].results.map((item) => {
+        const p = item as Record<string, unknown>;
+        return { ...p, color: colorMap[String(p.id)] ?? '' };
+      });
       return respond(
         Object.fromEntries([
           ...rows.map((r, i) => [i === 1 ? 'sources' : tables[i], r.results]),
@@ -129,8 +144,9 @@ export async function workRoute(
       const obj = await FILES.get(ds.object_key);
       if (!obj) throw new WorkError('No se pudo abrir el origen.');
       const data = await obj.json<Dataset>();
+      data.corrections = await loadRecordCorrections(DB);
       const records = data.sheets.flatMap(
-        (sheet, i) => organizeSheet(sheet, i, data.styles).records,
+        (sheet, i) => organizeSheet(sheet, i, data.styles, data).records,
       );
       return recordIds.map((key) => {
         const record = records.find((r) => recordKey(data, r) === key);
@@ -140,6 +156,150 @@ export async function workRoute(
           );
         return record;
       });
+    }
+    if (action === 'desk-person-new') {
+      const personId = required(d.requestId, 36);
+      if (
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+          personId,
+        )
+      )
+        throw new WorkError('Identificador de solicitud inválido.');
+      const name = required(d.name, 150),
+        document = optional(d.document, 40).replace(/\s+/g, '').toUpperCase(),
+        phone = optional(d.phone, 80),
+        address = optional(d.address, 300),
+        reason = required(d.reason, 1500);
+      const project = optional(d.project, 120),
+        lot = optional(d.lot, 120),
+        contract = optional(d.contract, 150),
+        color = d.color ?? '';
+      if (!validColor(color))
+        throw new WorkError('Selecciona un color válido.');
+      if ((lot && !project) || (project && !lot) || (!lot && contract))
+        throw new WorkError(
+          'Para añadir el primer lote, completa proyecto y ubicación.',
+        );
+      const payload = {
+        name,
+        document,
+        phone,
+        address,
+        project,
+        lot,
+        contract,
+        color,
+        reason,
+      };
+      const operation = 'person-create:' + personId;
+      const prior = await DB.prepare('SELECT value FROM settings WHERE key=?')
+        .bind(operation)
+        .first<{ value: string }>();
+      if (prior) {
+        if (prior.value !== JSON.stringify(payload))
+          throw new WorkError(
+            'Esta solicitud ya fue usada. Abre una nueva ficha.',
+            409,
+          );
+        return respond({ id: personId });
+      }
+      if (document) {
+        const ds = await DB.prepare(
+          'SELECT object_key FROM datasets ORDER BY created DESC LIMIT 1',
+        ).first<{ object_key: string }>();
+        const obj = ds ? await FILES.get(ds.object_key) : null;
+        if (obj) {
+          const data = await obj.json<Dataset>();
+          data.corrections = await loadRecordCorrections(DB);
+          const found = data.sheets.some((s, i) =>
+            organizeSheet(s, i, data.styles, data).records.some((r) =>
+              r.document
+                .replace(/\s+/g, '')
+                .toUpperCase()
+                .split(/[/;,]/)
+                .includes(document),
+            ),
+          );
+          if (found)
+            throw new WorkError(
+              'Ese DNI ya aparece en el Excel. Busca el expediente y usa Revisar y confirmar para evitar duplicarlo.',
+              409,
+            );
+        }
+      }
+      const sourceId = 'manual:' + personId;
+      const statements = [
+        DB.prepare(
+          "INSERT OR IGNORE INTO people (id,name,document,phone,address,created) SELECT ?,?,?,?,?,? WHERE ?='' OR NOT EXISTS(SELECT 1 FROM people WHERE document=?)",
+        ).bind(
+          personId,
+          name,
+          document,
+          phone,
+          address,
+          now,
+          document,
+          document,
+        ),
+        DB.prepare(
+          'INSERT INTO person_sources (record_id,person_id,reason) SELECT ?,?,? WHERE changes()=1',
+        ).bind(sourceId, personId, reason),
+        DB.prepare(
+          'INSERT INTO settings (key,value) SELECT ?,? WHERE changes()=1',
+        ).bind(operation, JSON.stringify(payload)),
+        DB.prepare(
+          'INSERT INTO settings (key,value) SELECT ?,? WHERE changes()=1',
+        ).bind('person-color:' + personId, color),
+      ];
+      if (lot)
+        statements.push(
+          DB.prepare(
+            'INSERT INTO lots (id,person_id,name,project,contract) SELECT ?,?,?,?,? WHERE changes()=1',
+          ).bind(crypto.randomUUID(), personId, lot, project, contract),
+        );
+      statements.push(
+        history(
+          personId,
+          'Persona creada desde la página',
+          null,
+          payload,
+          reason,
+          true,
+        ),
+      );
+      const result = await DB.batch(statements);
+      if (result[0].meta.changes !== 1)
+        throw new WorkError(
+          'Ese DNI o solicitud ya tiene una ficha. Busca la persona antes de crear otra.',
+          409,
+        );
+      return respond({ id: personId });
+    }
+    if (action === 'desk-person-color') {
+      const person = await getPerson(required(d.id)),
+        reason = required(d.reason, 1500);
+      if (!validColor(d.color))
+        throw new WorkError('Selecciona un color válido.');
+      const old = await DB.prepare('SELECT value FROM settings WHERE key=?')
+        .bind('person-color:' + person.id)
+        .first<{ value: string }>();
+      await mutate([
+        DB.prepare(
+          'UPDATE people SET version=version+1 WHERE id=? AND version=?',
+        ).bind(person.id, d.version),
+        DB.prepare(
+          'INSERT INTO settings (key,value) SELECT ?,? WHERE changes()=1 ON CONFLICT(key) DO UPDATE SET value=excluded.value',
+        ).bind('person-color:' + person.id, d.color),
+        history(
+          String(person.id),
+          'Color de etiqueta',
+          { color: old?.value ?? '' },
+          { color: d.color },
+          reason,
+          true,
+        ),
+      ]);
+      return respond({ id: person.id });
     }
     if (action === 'desk-person') {
       if (!d.id) admin();

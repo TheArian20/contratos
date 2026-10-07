@@ -1,3 +1,4 @@
+import { pinkMeansPaid, recordColors } from './record-colors.ts';
 export type RawCell = {
   value: string | number | boolean | null;
   type: string;
@@ -18,7 +19,9 @@ export type Dataset = {
     {
       location: string;
       observation: string;
-      paidInFull: boolean;
+      paidInFull?: boolean;
+      debtConfirmed?: boolean;
+      color?: string;
       version: number;
       name?: string;
       document?: string;
@@ -241,7 +244,8 @@ export function organizeSheet(
     const document = person ? find(/DNI/) : '';
     const pink = (cell: RawCell) =>
       styles?.[cell.style ?? '']?.fill?.toUpperCase() === '#FF99CC';
-    const paidInFull = !!person && fields.some((f) => pink(f.cell));
+    const sourcePink = !!person && fields.some((f) => pink(f.cell));
+    const paidInFull = sourcePink && pinkMeansPaid(sheet.name);
     const situation = recordSituation(sheet.name, row, !!person);
     const observations = fields.filter(
       (f) => f.group === 'Observaciones' && cellText(f.cell).trim(),
@@ -268,8 +272,22 @@ export function organizeSheet(
         cell: { value: note, type: 's', style: null, formula: null },
       });
     }
+    const personField = fields.find((f) =>
+      /NOMBRES Y APELLIDOS/.test(clean(f.header)),
+    );
+    const personStyle = styles?.[personField?.cell.style ?? ''];
+    const sourceFill = personStyle?.fill?.toUpperCase();
+    const sourceColor =
+      sourceFill === '#A9CE91' &&
+      personStyle?.color?.toUpperCase() === '#FF0000'
+        ? 'green-red'
+        : (recordColors.find((c) => c.hex && c.hex === sourceFill)?.value ??
+          (personStyle?.color?.toUpperCase() === '#FF0000' ? 'text-red' : ''));
     return {
       correction,
+      color:
+        correction?.color ??
+        (sourcePink || correction?.paidInFull ? 'pink' : sourceColor),
       id: `${sheetIndex}:${row.row}`,
       observations,
       situation: {
@@ -279,7 +297,7 @@ export function organizeSheet(
           ...situation.labels,
           ...(correction?.paidInFull
             ? ['Pagado totalmente · sin deuda confirmado']
-            : !correction && paidInFull
+            : correction?.paidInFull === undefined && paidInFull
               ? ['Pagado totalmente · sin deuda según Excel']
               : []),
         ],

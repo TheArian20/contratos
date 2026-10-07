@@ -1,5 +1,7 @@
 ﻿'use client';
 import { WorkSelect } from './work-select';
+import { PersonColorEditor } from './person-color-editor';
+import { colorStyle, colorLabel } from '@/lib/record-colors';
 import { useState } from 'react';
 import { Plus, ArrowLeft, FileText } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -44,6 +46,7 @@ export function WorkPerson({
   onSearch: () => void;
   onRefresh: () => Promise<void>;
 }) {
+  const [colorEditing, setColorEditing] = useState(false);
   const [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState('');
@@ -64,10 +67,18 @@ export function WorkPerson({
       <button className="secondary-button" onClick={onBack}>
         <ArrowLeft size={16} /> Volver a personas
       </button>
-      <section className="panel person-heading">
+      <section
+        className="panel person-heading"
+        style={colorStyle(person.color)}
+      >
         <div>
           <p className="eyebrow">FICHA DE PERSONA CONFIRMADA</p>
           <h2>{person.name}</h2>
+          {person.color && (
+            <p className="record-color-label">
+              Etiqueta: {colorLabel(person.color)}
+            </p>
+          )}
           <p>
             DNI / identificación: {person.document || 'Por confirmar'} ·{' '}
             {person.phone || 'Teléfono por confirmar'}
@@ -83,6 +94,14 @@ export function WorkPerson({
             ))}
         </div>
         <div className="work-actions">
+          {canEdit && (
+            <button
+              className="secondary-button"
+              onClick={() => setColorEditing(true)}
+            >
+              Cambiar color
+            </button>
+          )}
           {canEdit && (
             <button
               className="secondary-button"
@@ -110,7 +129,7 @@ export function WorkPerson({
           {admin && (
             <TabsTrigger value="historial">Historial de cambios</TabsTrigger>
           )}
-          <TabsTrigger value="origen">Ver datos del Excel</TabsTrigger>
+          <TabsTrigger value="origen">Origen del expediente</TabsTrigger>
         </TabsList>
         <TabsContent value="cuentas">
           <div className="excel-controls">
@@ -418,9 +437,9 @@ export function WorkPerson({
                   <WorkSelect id="work-person-1" name="recordId" required>
                     {[...sourceIds].map((id) => (
                       <option key={id} value={id}>
-                        {candidates.find((c) => c.id === id)?.project ??
-                          'Origen'}{' '}
-                        · {id.split(':').at(-1)}
+                        {id.startsWith('manual:')
+                          ? 'Ficha creada en la página'
+                          : `${candidates.find((c) => c.id === id)?.project ?? 'Origen'} · ${id.split(':').at(-1)}`}
                       </option>
                     ))}
                   </WorkSelect>
@@ -558,7 +577,9 @@ export function WorkPerson({
                   <div>
                     <strong>
                       {candidates.find((c) => c.id === s.record_id)?.project ??
-                        'Registro original'}
+                        (s.record_id.startsWith('manual:')
+                          ? 'Ficha creada en la página'
+                          : 'Registro original')}
                     </strong>
                     <p>{candidates.find((c) => c.id === s.record_id)?.lot}</p>
                     <p className="source-pending">
@@ -569,22 +590,25 @@ export function WorkPerson({
                     <small>{s.reason}</small>
                   </div>
                   <div className="work-actions">
-                    <button
-                      className="secondary-button"
-                      onClick={() => {
-                        const candidate = candidates.find(
-                          (c) => c.id === s.record_id,
-                        );
-                        if (candidate) onSource(candidate.sheet, candidate.row);
-                        else {
-                          const [hash, sheet, row] = s.record_id.split(':');
-                          onSource(Number(sheet), Number(row), hash);
-                        }
-                      }}
-                    >
-                      Ver origen
-                    </button>
-                    {admin && (
+                    {!s.record_id.startsWith('manual:') && (
+                      <button
+                        className="secondary-button"
+                        onClick={() => {
+                          const candidate = candidates.find(
+                            (c) => c.id === s.record_id,
+                          );
+                          if (candidate)
+                            onSource(candidate.sheet, candidate.row);
+                          else {
+                            const [hash, sheet, row] = s.record_id.split(':');
+                            onSource(Number(sheet), Number(row), hash);
+                          }
+                        }}
+                      >
+                        Ver origen
+                      </button>
+                    )}
+                    {admin && !s.record_id.startsWith('manual:') && (
                       <button
                         className="secondary-button"
                         onClick={() =>
@@ -604,6 +628,13 @@ export function WorkPerson({
           </section>
         </TabsContent>
       </Tabs>
+      {colorEditing && (
+        <PersonColorEditor
+          person={person}
+          onClose={() => setColorEditing(false)}
+          onSaved={onRefresh}
+        />
+      )}
     </>
   );
 }

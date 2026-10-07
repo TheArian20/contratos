@@ -36,6 +36,8 @@ import {
 } from './work-shared';
 import { WorkPerson } from './work-person';
 import { WorkForm } from './work-form';
+import { NewPerson } from './new-person';
+import { colorStyle, colorLabel } from '@/lib/record-colors';
 import { PaymentWizard } from './payment-wizard';
 const empty: WorkState = {
   people: [],
@@ -60,6 +62,7 @@ export function DailyWorkspace({
   onBrowse: (query: string) => void;
   onSource: (sheet: number, row: number, hash?: string) => void;
 }) {
+  const [creating, setCreating] = useState(false);
   const [state, setState] = useState<WorkState>(empty),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(''),
@@ -165,7 +168,12 @@ export function DailyWorkspace({
     setTab('Registrar pago');
   };
   const filteredPeople = state.people.filter((p) =>
-    clean(`${p.name} ${p.document} ${p.phone}`).includes(clean(query)),
+    clean(
+      `${p.name} ${p.document} ${p.phone} ${state.lots
+        .filter((l) => l.person_id === p.id)
+        .map((l) => l.name + ' ' + l.contract)
+        .join(' ')}`,
+    ).includes(clean(query)),
   );
   const filteredPending = pending.filter((c) =>
     clean(`${c.name} ${c.document} ${c.lot} ${c.project}`).includes(
@@ -246,13 +254,32 @@ export function DailyWorkspace({
             <h2>Busca a la persona</h2>
             <p>
               Escribe su nombre, DNI, lote o contrato. La búsqueda incluye todas
-              las hojas del Excel.
+              las hojas del Excel y las fichas creadas en la página.
             </p>
             <form
               className="easy-search"
               onSubmit={(e) => {
                 e.preventDefault();
-                onBrowse(query.trim());
+                const term = clean(query);
+                if (
+                  term &&
+                  state.people.some((p) =>
+                    clean(
+                      [
+                        p.name,
+                        p.document,
+                        p.phone,
+                        ...state.lots
+                          .filter((l) => l.person_id === p.id)
+                          .map((l) => l.name + ' ' + l.contract),
+                      ].join(' '),
+                    ).includes(term),
+                  )
+                ) {
+                  setTab('Personas');
+                  setPersonId('');
+                  setPage(0);
+                } else onBrowse(query.trim());
               }}
             >
               <label className="search-field">
@@ -267,6 +294,13 @@ export function DailyWorkspace({
               <button className="primary-button">Buscar</button>
             </form>
             <div className="easy-actions">
+              {canEdit && (
+                <button onClick={() => setCreating(true)}>
+                  <UserRound size={27} />
+                  <strong>Nueva persona</strong>
+                  <span>Crea una ficha y añade su primer lote.</span>
+                </button>
+              )}
               <button
                 onClick={() => {
                   setTab('Personas');
@@ -418,6 +452,14 @@ export function DailyWorkspace({
         <section className="panel secure-content">
           <div className="excel-controls">
             <h2>Personas con ficha de trabajo</h2>
+            {canEdit && (
+              <button
+                className="primary-button"
+                onClick={() => setCreating(true)}
+              >
+                Nueva persona
+              </button>
+            )}
             <button
               className="secondary-button"
               onClick={() => onBrowse(query)}
@@ -457,9 +499,14 @@ export function DailyWorkspace({
             </TableHeader>
             <TableBody>
               {filteredPeople.slice(page * 25, page * 25 + 25).map((p) => (
-                <TableRow key={p.id}>
+                <TableRow key={p.id} style={colorStyle(p.color)}>
                   <TableCell>
                     <strong>{p.name}</strong>
+                    {p.color && (
+                      <small className="record-color-label">
+                        Etiqueta: {colorLabel(p.color)}
+                      </small>
+                    )}
                     <small className="record-kind">
                       {p.phone || 'Teléfono por confirmar'}
                     </small>
@@ -630,6 +677,14 @@ export function DailyWorkspace({
             original. No se convierten automáticamente en personas.
           </p>
         </section>
+      )}
+      {creating && (
+        <NewPerson
+          onClose={() => setCreating(false)}
+          onSave={save}
+          onDone={openPerson}
+          busy={busy}
+        />
       )}
       {modal && (
         <WorkForm

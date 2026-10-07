@@ -15,6 +15,8 @@ import {
   type EditValues,
 } from '@/lib/record-editing';
 import type { SourceRecord } from '@/lib/source-data';
+import { ColorPicker } from './color-picker';
+import { pinkMeansPaid } from '@/lib/record-colors';
 
 export function ChangeSummary({
   before,
@@ -64,6 +66,7 @@ export function RecordEditor({
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
   const changed = editDifferences(before, values).length > 0 || !!note.trim();
+  const pinkDebt = pinkMeansPaid(project);
   return (
     <Dialog
       open
@@ -156,6 +159,25 @@ export function RecordEditor({
                 «Ubicación completa». Completa manzana y lote solo cuando estén
                 identificados.
               </p>
+              <ColorPicker
+                value={values.color ?? ''}
+                allowPink={!pinkDebt || admin}
+                disabled={pinkDebt && before.paidInFull && !admin}
+                onChange={(color) =>
+                  setValues((v) => ({
+                    ...v,
+                    color,
+                    ...(pinkDebt && admin
+                      ? { paidInFull: color === 'pink' }
+                      : {}),
+                  }))
+                }
+              />
+              <p>
+                {pinkDebt
+                  ? 'En Ciudad de Dios, el rosado significa sin deuda y lo confirma Administración.'
+                  : 'Aquí los colores son etiquetas; no cambian la deuda.'}
+              </p>
               {admin ? (
                 <label>
                   Estado de deuda
@@ -165,6 +187,16 @@ export function RecordEditor({
                       setValues((v) => ({
                         ...v,
                         paidInFull: e.target.value === 'paid',
+                        ...(pinkDebt
+                          ? {
+                              color:
+                                e.target.value === 'paid'
+                                  ? 'pink'
+                                  : v.color === 'pink'
+                                    ? ''
+                                    : v.color,
+                            }
+                          : {}),
                       }))
                     }
                   >

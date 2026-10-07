@@ -2632,6 +2632,82 @@ h2 {
   background: #e5f3ef;
   color: #13584e;
 }
+.color-picker {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.color-picker legend {
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+.color-picker > div {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 8px;
+}
+.color-picker label {
+  border: 2px solid #d5dfe7;
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  text-align: center;
+}
+.color-picker label.selected {
+  border-color: #087c71;
+  box-shadow: 0 0 0 1px #087c71;
+}
+.color-picker label:has(input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.color-picker label:focus-within {
+  outline: 3px solid #1976d2;
+  outline-offset: 2px;
+}
+.color-picker input[type='radio'] {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  min-height: 0;
+}
+.color-picker label > span {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 32px;
+  border: 1px solid #778899;
+  border-radius: 4px;
+  font-weight: 700;
+}
+.color-legend summary {
+  cursor: pointer;
+  font-weight: 700;
+  padding: 10px 0;
+}
+.color-legend dl > div {
+  border-bottom: 1px solid #dce5ec;
+  padding: 6px 0;
+}
+.color-legend dt {
+  font-weight: 700;
+}
+.color-legend dd {
+  margin: 3px 0;
+}
+.record-color-label {
+  display: block;
+  background: white;
+  color: #172b3a;
+  padding: 3px 6px;
+  border-radius: 4px;
+  width: fit-content;
+  font-size: 12px;
+}
 @media (max-width: 640px) {
   .record-edit-fields {
     grid-template-columns: 1fr;

@@ -14,6 +14,7 @@ import {
 import { DatasetUpdatePanel } from './dataset-update-panel';
 import { WorkSelect } from './work-select';
 import { RecordEditor, ChangeSummary } from './record-editor';
+import { colorStyle, colorLabel } from '@/lib/record-colors';
 import {
   editFields,
   recordValues,
@@ -640,11 +641,7 @@ export function SecurePortal() {
                           .map(({ sheet: si, record: r }) => (
                             <TableRow
                               key={`${si}:${r.row}`}
-                              style={
-                                r.situation.paidInFull
-                                  ? { background: '#FF99CC', color: '#172b3a' }
-                                  : undefined
-                              }
+                              style={colorStyle(r.color)}
                             >
                               <TableCell>
                                 <strong>
@@ -657,6 +654,11 @@ export function SecurePortal() {
                                     'Fila con formato'}
                                 </strong>
                                 <small className="record-kind">{r.kind}</small>
+                                {r.color && (
+                                  <small className="record-color-label">
+                                    Etiqueta: {colorLabel(r.color)}
+                                  </small>
+                                )}
                                 {r.observations.length > 0 && (
                                   <details>
                                     <summary>
@@ -1280,6 +1282,7 @@ function RecordPanel({
           {record.correction && (
             <section className="source-group">
               <h3>Datos actualizados</h3>
+              <p>Color: {colorLabel(record.color)}</p>
               <dl className="source-fields">
                 {editFields.map((f) => (
                   <div key={f.key}>

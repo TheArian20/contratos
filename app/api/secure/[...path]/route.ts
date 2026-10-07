@@ -1,3 +1,5 @@
+import { loadRecordCorrections } from '@/lib/record-corrections-store';
+import { pinkMeansPaid } from '@/lib/record-colors';
 import { reconcileDataset } from '@/lib/dataset-update';
 import { workRoute } from '@/lib/work-api';
 import { bindings } from '@/lib/server-store';
@@ -506,15 +508,7 @@ async function handler(request: Request) {
       if (!object) fail(503, 'La base no está disponible.');
       if (!requested) {
         const data = await object.json<Dataset>();
-        const corrections = await DB.prepare(
-          "SELECT key,value FROM settings WHERE key LIKE 'record-correction:%'",
-        ).all<{ key: string; value: string }>();
-        data.corrections = Object.fromEntries(
-          corrections.results.map((r) => [
-            r.key.slice('record-correction:'.length),
-            JSON.parse(r.value),
-          ]),
-        );
+        data.corrections = await loadRecordCorrections(DB);
         return json(data);
       }
       return new Response(object.body, {
@@ -527,6 +521,15 @@ async function handler(request: Request) {
       });
     }
     async function validRecord(id: string) {
+      if (/^manual:[0-9a-f-]{36}$/.test(id)) {
+        const found = await DB.prepare(
+          'SELECT p.id FROM people p JOIN person_sources s ON s.person_id=p.id WHERE s.record_id=?',
+        )
+          .bind(id)
+          .first();
+        if (!found) fail(404, 'Persona no encontrada.');
+        return;
+      }
       if (!/^[a-f0-9]{64}:\d+:\d+$/.test(id)) fail(400, 'Expediente inválido.');
       const [hash, sheet, row] = id.split(':');
       const dataset = await DB.prepare(
@@ -558,7 +561,7 @@ async function handler(request: Request) {
       const old = await DB.prepare('SELECT value FROM settings WHERE key=?')
         .bind(key)
         .first<{ value: string }>();
-      const previous = old ? JSON.parse(old.value) : null;
+      const previous = old ? (await loadRecordCorrections(DB))[id] : null;
       if (!Number.isSafeInteger(input.version) || input.version < 0)
         fail(400, 'Versión inválida.');
       if ((previous?.version ?? 0) !== input.version)
@@ -573,6 +576,18 @@ async function handler(request: Request) {
       if (!record || record.kind !== 'Expediente')
         fail(404, 'No se encontró un expediente vigente con esos datos.');
       const before = recordValues(record);
+      const sheetName = source.sheets[Number(record.id.split(':')[0])].name;
+      if (
+        pinkMeansPaid(sheetName) &&
+        input.color === 'pink' &&
+        input.paidInFull !== true
+      )
+        fail(
+          400,
+          'En Ciudad de Dios, rosado significa sin deuda. Administración debe confirmar ese estado.',
+        );
+      if (pinkMeansPaid(sheetName) && input.paidInFull === true)
+        input.color = 'pink';
       if (
         user.role !== 'Administrador' &&
         input.paidInFull !== before.paidInFull
@@ -600,6 +615,9 @@ async function handler(request: Request) {
       const after = {
         ...previous,
         ...values,
+        debtConfirmed:
+          previous?.debtConfirmed === true ||
+          before.paidInFull !== values.paidInFull,
         observation: previous?.observation ?? '',
         notes: [...(previous?.notes ?? []), ...(note ? [note] : [])],
         version: input.version + 1,
