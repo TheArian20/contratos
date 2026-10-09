@@ -84,6 +84,11 @@ export function WorkPerson({
             {person.phone || 'Teléfono por confirmar'}
           </p>
           <p>{person.address || 'Dirección por confirmar'}</p>
+          {person.project && (
+            <p>
+              <strong>Proyecto:</strong> {person.project}
+            </p>
+          )}
           {candidates
             .filter((c) => sourceIds.has(c.id) && c.flags?.length)
             .map((c) => (

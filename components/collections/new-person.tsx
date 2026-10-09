@@ -15,7 +15,7 @@ const fields = [
   ['document', 'DNI / identificación', 40],
   ['phone', 'Teléfono', 80],
   ['address', 'Dirección', 300],
-  ['project', 'Proyecto del primer lote (opcional)', 120],
+  ['project', 'Proyecto donde se registrará', 120],
   ['lot', 'Ubicación del primer lote (opcional)', 120],
   ['contract', 'Número de contrato (opcional)', 150],
 ] as const;
@@ -24,11 +24,13 @@ export function NewPerson({
   onSave,
   onDone,
   busy,
+  projects,
 }: {
   onClose: () => void;
   onSave: WorkSave;
   onDone: (id: string) => void;
   busy: boolean;
+  projects: string[];
 }) {
   const [requestId] = useState(() => crypto.randomUUID());
   const [data, setData] = useState({
@@ -71,6 +73,12 @@ export function NewPerson({
               setError('Escribe el nombre.');
               return;
             }
+            if (!projects.includes(data.project)) {
+              setError(
+                'Selecciona el proyecto donde se registrará la persona.',
+              );
+              return;
+            }
             if (!review) {
               setReview(true);
               return;
@@ -97,21 +105,39 @@ export function NewPerson({
                 {fields.map(([key, label, max]) => (
                   <label key={key}>
                     {label}
-                    <input
-                      value={data[key]}
-                      maxLength={max}
-                      required={
-                        key === 'name' ||
-                        (key === 'project' && !!data.lot) ||
-                        (key === 'lot' && !!data.project)
-                      }
-                      onChange={(e) =>
-                        setData((v) => ({ ...v, [key]: e.target.value }))
-                      }
-                    />
+                    {key === 'project' ? (
+                      <select
+                        required
+                        value={data.project}
+                        onChange={(e) =>
+                          setData((v) => ({ ...v, project: e.target.value }))
+                        }
+                      >
+                        <option value="">Selecciona un proyecto</option>
+                        {projects.map((name) => (
+                          <option key={name} value={name}>
+                            {name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        value={data[key]}
+                        maxLength={max}
+                        required={key === 'name'}
+                        onChange={(e) =>
+                          setData((v) => ({ ...v, [key]: e.target.value }))
+                        }
+                      />
+                    )}
                   </label>
                 ))}
               </div>
+              <p>
+                {data.project
+                  ? `La persona aparecerá en ${data.project}. Puedes completar su lote más adelante.`
+                  : 'Elige un proyecto. No necesitas conocer todavía la ubicación del lote.'}
+              </p>
               <ColorPicker value={color} onChange={setColor} />
               <p>
                 El color es una etiqueta de esta ficha. Los saldos se

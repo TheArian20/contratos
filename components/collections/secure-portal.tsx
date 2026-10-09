@@ -15,6 +15,7 @@ import { DatasetUpdatePanel } from './dataset-update-panel';
 import { WorkSelect } from './work-select';
 import { RecordEditor, ChangeSummary } from './record-editor';
 import { ColorLegend } from './color-legend';
+import { ProjectPeople } from './project-people';
 import { colorStyle, colorLabel } from '@/lib/record-colors';
 import {
   editFields,
@@ -100,6 +101,7 @@ async function api<T = { ok: boolean }>(
 const errorText = (e: unknown) =>
   e instanceof Error ? e.message : 'Ocurrió un error. Inténtalo de nuevo.';
 export function SecurePortal() {
+  const [focusPerson, setFocusPerson] = useState('');
   const [user, setUser] = useState<User | null>(null),
     [loading, setLoading] = useState(true),
     [data, setData] = useState<Dataset | null>(null),
@@ -284,6 +286,7 @@ export function SecurePortal() {
           className={view === 'Trabajo diario' ? 'active' : ''}
           onClick={() => {
             if (data?.sourceHash !== currentHash) void refresh();
+            setFocusPerson('');
             setView('Trabajo diario');
             setMenu(false);
           }}
@@ -409,6 +412,8 @@ export function SecurePortal() {
           )}
           {view === 'Trabajo diario' ? (
             <DailyWorkspace
+              key={focusPerson}
+              initialPersonId={focusPerson}
               data={data}
               role={user.role}
               onBrowse={(term) => {
@@ -627,6 +632,16 @@ export function SecurePortal() {
                         Limpiar
                       </button>
                     </div>
+                    {data?.sourceHash === currentHash && (
+                      <ProjectPeople
+                        project={sheet?.name}
+                        query={query}
+                        onOpen={(id) => {
+                          setFocusPerson(id);
+                          setView('Trabajo diario');
+                        }}
+                      />
+                    )}
                     <Table>
                       <TableHeader>
                         <TableRow>

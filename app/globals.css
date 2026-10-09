@@ -2757,6 +2757,30 @@ h2 {
   font-size: 14px;
   line-height: 1.6;
 }
+.secure-form select {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px;
+  border: 1px solid #c5d5e2;
+  border-radius: 8px;
+  color: #172b3a;
+  background: white;
+  font: inherit;
+}
+.secure-form select:focus-visible {
+  outline: 2px solid #087c71;
+  outline-offset: 2px;
+}
+.project-people {
+  margin: 16px 0 24px;
+  padding: 16px;
+  background: #f4faf8;
+  border: 1px solid #c9e4dc;
+  border-radius: 10px;
+}
+.project-people h3 {
+  font-size: 18px;
+}
 .record-color-label {
   display: block;
   background: white;

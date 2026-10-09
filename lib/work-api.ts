@@ -2,7 +2,12 @@ import { loadRecordCorrections } from './record-corrections-store';
 import { validColor } from './record-colors';
 import { concepts } from './concept-payments';
 import { centsInput, validDay, todayLocal, monthlyPlan } from './work-ledger';
-import { organizeSheet, recordKey, type Dataset } from './source-data';
+import {
+  organizeSheet,
+  recordKey,
+  availableProjects,
+  type Dataset,
+} from './source-data';
 type User = { id: string; name: string; username: string; role: string };
 class WorkError extends Error {
   status: number;
@@ -35,6 +40,14 @@ export async function workRoute(
   try {
     const url = new URL(request.url),
       action = url.pathname.split('/').at(-1);
+    if (action === 'desk-project-people' && request.method === 'GET') {
+      const result =
+        await DB.prepare(`SELECT DISTINCT p.id,p.name,p.document,m.project FROM people p JOIN (
+        SELECT substr(key,16) person_id,value project FROM settings WHERE key LIKE 'person-project:%'
+        UNION SELECT person_id,project FROM lots
+      ) m ON m.person_id=p.id WHERE EXISTS(SELECT 1 FROM person_sources s WHERE s.person_id=p.id AND s.record_id LIKE 'manual:%') ORDER BY p.name,m.project`).all();
+      return respond(result.results);
+    }
     if (action === 'desk-state' && request.method === 'GET') {
       const tables = [
         'people',
@@ -64,6 +77,15 @@ export async function workRoute(
       const colors = await DB.prepare(
         "SELECT key,value FROM settings WHERE key LIKE 'person-color:%'",
       ).all<{ key: string; value: string }>();
+      const projects = await DB.prepare(
+        "SELECT key,value FROM settings WHERE key LIKE 'person-project:%'",
+      ).all<{ key: string; value: string }>();
+      const projectMap = Object.fromEntries(
+        projects.results.map((r) => [
+          r.key.slice('person-project:'.length),
+          r.value,
+        ]),
+      );
       const colorMap = Object.fromEntries(
         colors.results.map((r) => [
           r.key.slice('person-color:'.length),
@@ -72,7 +94,11 @@ export async function workRoute(
       );
       rows[0].results = rows[0].results.map((item) => {
         const p = item as Record<string, unknown>;
-        return { ...p, color: colorMap[String(p.id)] ?? '' };
+        return {
+          ...p,
+          color: colorMap[String(p.id)] ?? '',
+          project: projectMap[String(p.id)] ?? '',
+        };
       });
       return respond(
         Object.fromEntries([
@@ -170,13 +196,13 @@ export async function workRoute(
         phone = optional(d.phone, 80),
         address = optional(d.address, 300),
         reason = required(d.reason, 1500);
-      const project = optional(d.project, 120),
+      const project = required(d.project, 120),
         lot = optional(d.lot, 120),
         contract = optional(d.contract, 150),
         color = d.color ?? '';
       if (!validColor(color))
         throw new WorkError('Selecciona un color válido.');
-      if ((lot && !project) || (project && !lot) || (!lot && contract))
+      if (!lot && contract)
         throw new WorkError(
           'Para añadir el primer lote, completa proyecto y ubicación.',
         );
@@ -203,29 +229,34 @@ export async function workRoute(
           );
         return respond({ id: personId });
       }
-      if (document) {
-        const ds = await DB.prepare(
-          'SELECT object_key FROM datasets ORDER BY created DESC LIMIT 1',
-        ).first<{ object_key: string }>();
-        const obj = ds ? await FILES.get(ds.object_key) : null;
-        if (obj) {
-          const data = await obj.json<Dataset>();
-          data.corrections = await loadRecordCorrections(DB);
-          const found = data.sheets.some((s, i) =>
-            organizeSheet(s, i, data.styles, data).records.some((r) =>
-              r.document
-                .replace(/\s+/g, '')
-                .toUpperCase()
-                .split(/[/;,]/)
-                .includes(document),
-            ),
+      const ds = await DB.prepare(
+        'SELECT object_key FROM datasets ORDER BY created DESC LIMIT 1',
+      ).first<{ object_key: string }>();
+      const obj = ds ? await FILES.get(ds.object_key) : null;
+      if (ds && !obj)
+        throw new WorkError(
+          'No se pudo comprobar el proyecto. Inténtalo de nuevo.',
+          503,
+        );
+      const data = obj ? await obj.json<Dataset>() : null;
+      if (!availableProjects(data).includes(project))
+        throw new WorkError('Selecciona uno de los proyectos disponibles.');
+      if (document && data) {
+        data.corrections = await loadRecordCorrections(DB);
+        const found = data.sheets.some((s, i) =>
+          organizeSheet(s, i, data.styles, data).records.some((r) =>
+            r.document
+              .replace(/\s+/g, '')
+              .toUpperCase()
+              .split(/[/;,]/)
+              .includes(document),
+          ),
+        );
+        if (found)
+          throw new WorkError(
+            'Ese DNI ya aparece en el Excel. Busca el expediente y usa Revisar y confirmar para evitar duplicarlo.',
+            409,
           );
-          if (found)
-            throw new WorkError(
-              'Ese DNI ya aparece en el Excel. Busca el expediente y usa Revisar y confirmar para evitar duplicarlo.',
-              409,
-            );
-        }
       }
       const sourceId = 'manual:' + personId;
       const statements = [
@@ -250,6 +281,9 @@ export async function workRoute(
         DB.prepare(
           'INSERT INTO settings (key,value) SELECT ?,? WHERE changes()=1',
         ).bind('person-color:' + personId, color),
+        DB.prepare(
+          'INSERT INTO settings (key,value) SELECT ?,? WHERE changes()=1',
+        ).bind('person-project:' + personId, project),
       ];
       if (lot)
         statements.push(

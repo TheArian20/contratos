@@ -431,3 +431,12 @@ export function inspectDataset(data: Dataset) {
     return { name: sheet.name, rows: rows.size, cells };
   });
 }
+
+export function availableProjects(data?: Dataset | null) {
+  const names = data ? data.sheets.map((s) => s.name) : Object.keys(sections);
+  return [
+    ...new Set(
+      names.filter((name) => sections[name]?.category === 'Proyectos'),
+    ),
+  ];
+}

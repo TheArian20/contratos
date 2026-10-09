@@ -1,5 +1,6 @@
 ﻿export type Person = {
   color?: string;
+  project?: string;
   id: string;
   name: string;
   document: string;

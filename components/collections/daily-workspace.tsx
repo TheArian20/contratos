@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/table';
 import {
   organizeSheet,
+  availableProjects,
   recordKey,
   clean,
   type Dataset,
@@ -57,7 +58,9 @@ export function DailyWorkspace({
   role,
   onSource,
   onBrowse,
+  initialPersonId = '',
 }: {
+  initialPersonId?: string;
   data: Dataset | null;
   role: string;
   onBrowse: (query: string) => void;
@@ -69,8 +72,8 @@ export function DailyWorkspace({
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState('Hoy'),
-    [personId, setPersonId] = useState(''),
+  const [tab, setTab] = useState(initialPersonId ? 'Personas' : 'Hoy'),
+    [personId, setPersonId] = useState(initialPersonId),
     [query, setQuery] = useState(''),
     [page, setPage] = useState(0),
     [modal, setModal] = useState<WorkModal | null>(null),
@@ -684,6 +687,7 @@ export function DailyWorkspace({
       )}
       {creating && (
         <NewPerson
+          projects={availableProjects(data)}
           onClose={() => setCreating(false)}
           onSave={save}
           onDone={openPerson}
