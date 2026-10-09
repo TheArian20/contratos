@@ -62,6 +62,24 @@ test('palette retains exact workbook legend tones and accepts no arbitrary CSS',
   assert.equal(colorHex('lime'), '#CCFF66');
   assert.equal(validColor('url(evil)'), false);
 });
+test('black source formatting is not a row label, but a chosen black label is preserved', () => {
+  const cell = (value, style=null) => ({value,style,type:'s',formula:null});
+  const sheet={name:'AA DATOS',state:'visible',merges:[],rows:[{row:1,cells:{A1:cell('NOMBRES Y APELLIDOS')}},{row:2,cells:{A2:cell('Persona','default')}}]};
+  const styles={default:{fill:'#000000',color:'#FFFFFF'}};
+  assert.equal(organizeSheet(sheet,0,styles).records[1].color,'');
+  const data={sourceHash:'hash',sheets:[sheet],corrections:{'hash:0:2':{location:'A-1',observation:'',version:1,color:'black',colorConfirmed:true}}};
+  assert.equal(organizeSheet(sheet,0,styles,data).records[1].color,'black');
+});
+test('saved inherited black is cleared using audit evidence without losing deliberate choices', async () => {
+  const stored={inherited:{color:'black',version:1},chosen:{color:'black',version:2},current:{color:'black',colorConfirmed:true,version:3}};
+  const history=[{recordId:'inherited',before:{color:'black'},after:{color:'black'}},{recordId:'chosen',before:{color:'yellow'},after:{color:'black'}}];
+  const DB={prepare:sql=>({all:async()=>({results:sql.includes('FROM settings')?Object.entries(stored).map(([id,c])=>({key:'record-correction:'+id,value:JSON.stringify(c)})):history.map(h=>({target:JSON.stringify(h)}))})})};
+  const result=await loadRecordCorrections(DB);
+  assert.equal(result.inherited.color,undefined);
+  assert.equal(result.chosen.color,'black');
+  assert.equal(result.current.color,'black');
+  assert.equal(result.inherited.version,1);
+});
 test('legacy inferred flags are removed while explicit debt decisions remain', async () => {
   const stored = [
     ['inferred', { paidInFull: true, version: 1 }],

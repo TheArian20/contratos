@@ -615,6 +615,8 @@ async function handler(request: Request) {
       const after = {
         ...previous,
         ...values,
+        colorConfirmed:
+          previous?.colorConfirmed === true || before.color !== values.color,
         debtConfirmed:
           previous?.debtConfirmed === true ||
           before.paidInFull !== values.paidInFull,

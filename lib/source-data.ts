@@ -21,6 +21,7 @@ export type Dataset = {
       observation: string;
       paidInFull?: boolean;
       debtConfirmed?: boolean;
+      colorConfirmed?: boolean;
       color?: string;
       version: number;
       name?: string;
@@ -281,7 +282,9 @@ export function organizeSheet(
       sourceFill === '#A9CE91' &&
       personStyle?.color?.toUpperCase() === '#FF0000'
         ? 'green-red'
-        : (recordColors.find((c) => c.hex && c.hex === sourceFill)?.value ??
+        : (recordColors.find(
+            (c) => c.value !== 'black' && c.hex && c.hex === sourceFill,
+          )?.value ??
           (personStyle?.color?.toUpperCase() === '#FF0000' ? 'text-red' : ''));
     return {
       correction,
