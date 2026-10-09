@@ -14,6 +14,7 @@ import {
 import { DatasetUpdatePanel } from './dataset-update-panel';
 import { WorkSelect } from './work-select';
 import { RecordEditor, ChangeSummary } from './record-editor';
+import { ColorLegend } from './color-legend';
 import { colorStyle, colorLabel } from '@/lib/record-colors';
 import {
   editFields,
@@ -581,6 +582,7 @@ export function SecurePortal() {
                         </p>
                       </div>
                     </div>
+                    <ColorLegend />
                     <div className="secure-filters">
                       <label className="search-field">
                         <Search size={18} />

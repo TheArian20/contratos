@@ -1,6 +1,7 @@
 'use client';
 import { useId } from 'react';
-import { recordColors, colorLegends, colorLabel } from '@/lib/record-colors';
+import { recordColors } from '@/lib/record-colors';
+import { ColorLegend } from './color-legend';
 export function ColorPicker({
   value,
   onChange,
@@ -48,30 +49,7 @@ export function ColorPicker({
           ))}
         </div>
       </fieldset>
-      <details className="color-legend">
-        <summary>Ver leyenda del Excel</summary>
-        {Object.entries(colorLegends).map(([section, rows]) => (
-          <section key={section}>
-            <h4>{section}</h4>
-            <dl>
-              {rows.map(([color, text]) => (
-                <div key={color}>
-                  <dt>{colorLabel(color)}</dt>
-                  <dd>{text}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-        ))}
-        <p>
-          Rosado: sin deuda solo en Ciudad de Dios, según la indicación de
-          Administración. En las demás secciones es una etiqueta.
-        </p>
-        <p>
-          Las etiquetas conservan la referencia visual del Excel. Cambiar un
-          color no registra pagos ni modifica importes.
-        </p>
-      </details>
+      <ColorLegend />
     </>
   );
 }

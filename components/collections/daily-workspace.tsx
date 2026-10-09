@@ -37,6 +37,7 @@ import {
 import { WorkPerson } from './work-person';
 import { WorkForm } from './work-form';
 import { NewPerson } from './new-person';
+import { ColorLegend } from './color-legend';
 import { colorStyle, colorLabel } from '@/lib/record-colors';
 import { PaymentWizard } from './payment-wizard';
 const empty: WorkState = {
@@ -256,6 +257,7 @@ export function DailyWorkspace({
               Escribe su nombre, DNI, lote o contrato. La búsqueda incluye todas
               las hojas del Excel y las fichas creadas en la página.
             </p>
+            <ColorLegend />
             <form
               className="easy-search"
               onSubmit={(e) => {
@@ -476,6 +478,7 @@ export function DailyWorkspace({
               Revisar una persona del Excel
             </button>
           </div>
+          <ColorLegend />
           <label className="search-field">
             <Search size={18} />
             <input
@@ -607,6 +610,7 @@ export function DailyWorkspace({
             Compara identificación, nombre, contrato y lote. Una coincidencia de
             nombre no confirma que sea la misma persona.
           </p>
+          <ColorLegend />
           <label className="search-field">
             <Search size={18} />
             <input
