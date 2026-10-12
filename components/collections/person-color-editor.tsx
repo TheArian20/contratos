@@ -1,4 +1,5 @@
 'use client';
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
 import { useState } from 'react';
 import {
   Dialog,
@@ -25,11 +26,18 @@ export function PersonColorEditor({
     [review, setReview] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
+  const guard = useUnsavedChanges(
+    color !== (person.color ?? '') || !!reason,
+    busy,
+  );
+  const close = () => {
+    if (guard.canLeave()) onClose();
+  };
   return (
     <Dialog
       open
       onOpenChange={(v) => {
-        if (!v && !busy) onClose();
+        if (!v && !busy) close();
       }}
     >
       <DialogContent className="work-dialog">
@@ -57,6 +65,7 @@ export function PersonColorEditor({
                 color,
                 reason,
               });
+              guard.markSaved();
               await onSaved();
               onClose();
             } catch (e) {
@@ -91,7 +100,7 @@ export function PersonColorEditor({
               type="button"
               className="secondary-button"
               disabled={busy}
-              onClick={() => (review ? setReview(false) : onClose())}
+              onClick={() => (review ? setReview(false) : close())}
             >
               {review ? 'Volver' : 'Cancelar'}
             </button>

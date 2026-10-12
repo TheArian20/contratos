@@ -1,4 +1,5 @@
 'use client';
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
 import { useEffect, useMemo, useState } from 'react';
 import {
   FolderClosed,
@@ -16,7 +17,7 @@ import { WorkSelect } from './work-select';
 import { RecordEditor, ChangeSummary } from './record-editor';
 import { ColorLegend } from './color-legend';
 import { ProjectPeople } from './project-people';
-import { colorStyle, colorLabel } from '@/lib/record-colors';
+import { colorStyle, colorLabel, colorMeaning } from '@/lib/record-colors';
 import {
   editFields,
   recordValues,
@@ -280,7 +281,10 @@ export function SecurePortal() {
     );
   return (
     <div className="secure-app">
-      <aside className={`secure-sidebar ${menu ? 'is-open' : ''}`}>
+      <aside
+        data-navigation
+        className={`secure-sidebar ${menu ? 'is-open' : ''}`}
+      >
         <Brand />
         <button
           className={view === 'Trabajo diario' ? 'active' : ''}
@@ -673,7 +677,11 @@ export function SecurePortal() {
                                 <small className="record-kind">{r.kind}</small>
                                 {r.color && (
                                   <small className="record-color-label">
-                                    Etiqueta: {colorLabel(r.color)}
+                                    {colorLabel(r.color)} ·{' '}
+                                    {colorMeaning(
+                                      r.color,
+                                      data!.sheets[si].name,
+                                    )}
                                   </small>
                                 )}
                                 {r.observations.length > 0 && (
@@ -1172,6 +1180,8 @@ function RecordPanel({
   ) => void;
   onReload: () => Promise<void>;
 }) {
+  const [tab, setTab] = useState('ficha');
+  const [dirty, setDirty] = useState(false);
   const [editing, setEditing] = useState(false),
     [notice, setNotice] = useState('');
   const id = recordKey(data, record),
@@ -1180,6 +1190,7 @@ function RecordPanel({
     [busy, setBusy] = useState(false),
     [category, setCategory] = useState('Contrato'),
     [kind, setKind] = useState('Gestión');
+  const guard = useUnsavedChanges(dirty, busy, () => setDirty(false));
   const load = async () => {
     try {
       setExtras(await api<Extras>(`record?id=${encodeURIComponent(id)}`));
@@ -1239,7 +1250,7 @@ function RecordPanel({
     <Sheet
       open
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open && guard.canLeave()) onClose();
       }}
     >
       <SheetContent className="source-sheet">
@@ -1278,6 +1289,22 @@ function RecordPanel({
                 Editar datos
               </button>
             )}
+          {user.role !== 'Consulta' && (
+            <div className="work-actions" data-navigation>
+              <button
+                className="secondary-button"
+                onClick={() => setTab('documentos')}
+              >
+                Añadir documento
+              </button>
+              <button
+                className="secondary-button"
+                onClick={() => setTab('gestion')}
+              >
+                Añadir observación
+              </button>
+            </div>
+          )}
           {!editable && (
             <p>
               Versión histórica: abre el expediente en la base actual para
@@ -1299,7 +1326,10 @@ function RecordPanel({
           {record.correction && (
             <section className="source-group">
               <h3>Datos actualizados</h3>
-              <p>Color: {colorLabel(record.color)}</p>
+              <p>
+                {colorLabel(record.color)} ·{' '}
+                {colorMeaning(record.color, sheet.name)}
+              </p>
               <dl className="source-fields">
                 {editFields.map((f) => (
                   <div key={f.key}>
@@ -1333,13 +1363,13 @@ function RecordPanel({
               Buscar este DNI en toda la base
             </button>
           )}
-          <Tabs defaultValue="ficha">
-            <TabsList className="source-tabs">
-              <TabsTrigger value="ficha">Ficha</TabsTrigger>
+          <Tabs value={tab} onValueChange={setTab}>
+            <TabsList data-navigation className="source-tabs">
+              <TabsTrigger value="ficha">Datos y lotes</TabsTrigger>
               <TabsTrigger value="cuotas">Cuotas</TabsTrigger>
               <TabsTrigger value="abonos">Abonos por concepto</TabsTrigger>
               <TabsTrigger value="documentos">Documentos</TabsTrigger>
-              <TabsTrigger value="gestion">Seguimiento</TabsTrigger>
+              <TabsTrigger value="gestion">Observaciones</TabsTrigger>
               <TabsTrigger value="origen">Origen completo</TabsTrigger>
             </TabsList>
             <TabsContent value="ficha">
@@ -1377,7 +1407,7 @@ function RecordPanel({
             <TabsContent value="abonos">
               <p className="excel-caution">
                 Para registrar o revisar abonos, abre Trabajo diario y la ficha
-                confirmada de la persona. All? cada pago se vincula a un lote y
+                confirmada de la persona. Allí cada pago se vincula a un lote y
                 concepto.
               </p>
             </TabsContent>
@@ -1416,6 +1446,7 @@ function RecordPanel({
               {user.role !== 'Consulta' && (
                 <form
                   className="secure-form source-group"
+                  onChange={() => setDirty(true)}
                   onSubmit={async (e) => {
                     e.preventDefault();
                     const form = e.currentTarget,
@@ -1426,6 +1457,9 @@ function RecordPanel({
                     setError('');
                     try {
                       await api('documents', 'POST', f);
+                      guard.markSaved();
+                      setDirty(false);
+                      setNotice('Cambios guardados correctamente.');
                       form.reset();
                       await load();
                     } catch (err) {
@@ -1457,6 +1491,12 @@ function RecordPanel({
               )}
             </TabsContent>
             <TabsContent value="gestion">
+              <h3>Observaciones del Excel y de la ficha</h3>
+              {record.observations.map((f) => (
+                <p className="observation-text" key={f.coordinate}>
+                  <strong>{f.header}:</strong> {cellText(f.cell)}
+                </p>
+              ))}
               <p>
                 Las correcciones quedan registradas para revisión y no alteran
                 el Excel original.
@@ -1474,6 +1514,7 @@ function RecordPanel({
               {user.role !== 'Consulta' && (
                 <form
                   className="secure-form source-group"
+                  onChange={() => setDirty(true)}
                   onSubmit={async (e) => {
                     e.preventDefault();
                     const form = e.currentTarget,
@@ -1486,6 +1527,9 @@ function RecordPanel({
                         kind,
                         body: f.get('body'),
                       });
+                      guard.markSaved();
+                      setDirty(false);
+                      setNotice('Cambios guardados correctamente.');
                       form.reset();
                       await load();
                     } catch (err) {
@@ -1506,7 +1550,7 @@ function RecordPanel({
                     <textarea name="body" rows={5} required maxLength={10000} />
                   </label>
                   <button className="primary-button" disabled={busy}>
-                    {busy ? 'Guardando…' : 'Guardar anotación'}
+                    {busy ? 'Guardando…' : 'Guardar observación'}
                   </button>
                 </form>
               )}

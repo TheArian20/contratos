@@ -1,4 +1,5 @@
 ﻿'use client';
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
 import { WorkSelect } from './work-select';
 import { ChangeSummary } from './record-editor';
 import type { EditValues } from '@/lib/record-editing';
@@ -39,6 +40,8 @@ export function WorkForm({
   onPerson: (id: string) => void;
 }) {
   const [error, setError] = useState('');
+  const [dirty, setDirty] = useState(false);
+  const guard = useUnsavedChanges(dirty, busy);
   const [pending, setPending] = useState<{
     path: string;
     payload: Record<string, unknown>;
@@ -71,10 +74,10 @@ export function WorkForm({
     <Dialog
       open
       onOpenChange={(open) => {
-        if (!open && !busy) onClose();
+        if (!open && guard.canLeave()) onClose();
       }}
     >
-      <DialogContent className="work-dialog">
+      <DialogContent className="work-dialog" onChange={() => setDirty(true)}>
         <DialogHeader>
           <DialogTitle>
             {
@@ -116,6 +119,7 @@ export function WorkForm({
             onSource={onSource}
             onSave={async (path, payload) => {
               const result = await onSave(path, payload);
+              guard.markSaved();
               onClose();
               onPerson(result.id ?? (payload as { personId: string }).personId);
             }}
@@ -144,6 +148,7 @@ export function WorkForm({
                       setError('');
                       try {
                         await onSave(pending.path, pending.payload);
+                        guard.markSaved();
                         onClose();
                       } catch (e) {
                         setError(workError(e));
@@ -284,6 +289,7 @@ export function WorkForm({
                 }
                 try {
                   await onSave(path, payload);
+                  guard.markSaved();
                   onClose();
                 } catch (err) {
                   setError(workError(err));

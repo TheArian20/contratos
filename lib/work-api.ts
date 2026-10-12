@@ -206,6 +206,7 @@ export async function workRoute(
         throw new WorkError(
           'Para añadir el primer lote, completa proyecto y ubicación.',
         );
+      const observation = optional(d.observation, 1500);
       const payload = {
         name,
         document,
@@ -216,6 +217,7 @@ export async function workRoute(
         contract,
         color,
         reason,
+        ...(observation ? { observation } : {}),
       };
       const operation = 'person-create:' + personId;
       const prior = await DB.prepare('SELECT value FROM settings WHERE key=?')
@@ -290,6 +292,19 @@ export async function workRoute(
           DB.prepare(
             'INSERT INTO lots (id,person_id,name,project,contract) SELECT ?,?,?,?,? WHERE changes()=1',
           ).bind(crypto.randomUUID(), personId, lot, project, contract),
+        );
+      if (observation)
+        statements.push(
+          DB.prepare(
+            'INSERT INTO entries (id,record_id,kind,body,created,author) SELECT ?,?,?,?,?,? WHERE changes()=1',
+          ).bind(
+            crypto.randomUUID(),
+            sourceId,
+            'Observación inicial',
+            observation,
+            now,
+            user.name,
+          ),
         );
       statements.push(
         history(

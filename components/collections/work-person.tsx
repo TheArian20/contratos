@@ -1,4 +1,7 @@
 ﻿'use client';
+import { PersonObservation } from './person-observation';
+import { ColorLegend } from './color-legend';
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
 import { WorkSelect } from './work-select';
 import { PersonColorEditor } from './person-color-editor';
 import { colorStyle, colorLabel } from '@/lib/record-colors';
@@ -46,10 +49,15 @@ export function WorkPerson({
   onSearch: () => void;
   onRefresh: () => Promise<void>;
 }) {
+  const [tab, setTab] = useState('datos');
+  const [documentDirty, setDocumentDirty] = useState(false);
   const [colorEditing, setColorEditing] = useState(false);
   const [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState('');
+  const guard = useUnsavedChanges(documentDirty, busy, () =>
+    setDocumentDirty(false),
+  );
   const lots = state.lots.filter((l) => l.person_id === person.id),
     lotIds = new Set(lots.map((l) => l.id)),
     accounts = state.accounts.filter((a) => lotIds.has(a.lot_id)),
@@ -64,7 +72,7 @@ export function WorkPerson({
   );
   return (
     <>
-      <button className="secondary-button" onClick={onBack}>
+      <button data-navigation className="secondary-button" onClick={onBack}>
         <ArrowLeft size={16} /> Volver a personas
       </button>
       <section
@@ -98,7 +106,33 @@ export function WorkPerson({
               </p>
             ))}
         </div>
-        <div className="work-actions">
+        <div className="work-actions" data-navigation>
+          {canEdit && (
+            <>
+              <button
+                className="primary-button"
+                onClick={() =>
+                  accounts.length === 1
+                    ? onPay(accounts[0].id)
+                    : setTab('cuentas')
+                }
+              >
+                Registrar pago
+              </button>
+              <button
+                className="secondary-button"
+                onClick={() => setTab('documentos')}
+              >
+                Añadir documento
+              </button>
+              <button
+                className="secondary-button"
+                onClick={() => setTab('gestiones')}
+              >
+                Añadir observación
+              </button>
+            </>
+          )}
           {canEdit && (
             <button
               className="secondary-button"
@@ -125,20 +159,47 @@ export function WorkPerson({
           )}
         </div>
       </section>
-      <Tabs defaultValue="cuentas">
-        <TabsList className="person-tabs">
+      {notice && <output className="notice">{notice}</output>}
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList data-navigation className="person-tabs">
+          <TabsTrigger value="datos">Datos personales</TabsTrigger>
           <TabsTrigger value="cuentas">Lotes y deudas</TabsTrigger>
           <TabsTrigger value="pagos">Pagos</TabsTrigger>
           <TabsTrigger value="documentos">Documentos</TabsTrigger>
-          <TabsTrigger value="gestiones">Notas y recordatorios</TabsTrigger>
+          <TabsTrigger value="gestiones">Observaciones</TabsTrigger>
           {admin && (
             <TabsTrigger value="historial">Historial de cambios</TabsTrigger>
           )}
           <TabsTrigger value="origen">Origen del expediente</TabsTrigger>
         </TabsList>
+        <TabsContent value="datos">
+          <section className="panel secure-content">
+            <h2>Datos personales</h2>
+            <dl className="source-fields">
+              {[
+                ['Nombre completo', person.name],
+                ['DNI / identificación', person.document],
+                ['Teléfono', person.phone],
+                ['Dirección', person.address],
+                ['Proyecto de registro', person.project],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value || 'Por completar'}</dd>
+                </div>
+              ))}
+            </dl>
+            <p>
+              {lots.length} lote(s) ·{' '}
+              {payments.filter((p) => !p.void_reason).length} pago(s)
+              registrado(s).
+            </p>
+            <ColorLegend />
+          </section>
+        </TabsContent>
         <TabsContent value="cuentas">
           <div className="excel-controls">
-            <h2>Lotes de {person.name}</h2>
+            <h2>Lotes y cuentas de {person.name}</h2>
             {admin && (
               <button
                 className="primary-button"
@@ -411,6 +472,7 @@ export function WorkPerson({
             )}
             {canEdit && (
               <form
+                onChange={() => setDocumentDirty(true)}
                 className="secure-form"
                 onSubmit={async (e) => {
                   e.preventDefault();
@@ -427,9 +489,17 @@ export function WorkPerson({
                       error?: string;
                     };
                     if (!response.ok) throw new Error(result.error);
-                    await onRefresh();
+                    guard.markSaved();
+                    setDocumentDirty(false);
                     form.reset();
-                    setNotice('Documento adjuntado al expediente.');
+                    setNotice('Documento guardado correctamente.');
+                    try {
+                      await onRefresh();
+                    } catch {
+                      setError(
+                        'El documento se guardó. Actualiza la página para verlo.',
+                      );
+                    }
                   } catch (err) {
                     setError(workError(err));
                   } finally {
@@ -467,7 +537,7 @@ export function WorkPerson({
                   />
                 </label>
                 <button className="primary-button" disabled={busy}>
-                  Adjuntar contrato o documento
+                  {busy ? 'Guardando…' : 'Guardar documento'}
                 </button>
               </form>
             )}
@@ -476,7 +546,7 @@ export function WorkPerson({
         <TabsContent value="gestiones">
           <section className="panel secure-content">
             <div className="excel-controls">
-              <h2>Gestiones y compromisos</h2>
+              <h2>Observaciones y recordatorios</h2>
               {canEdit && (
                 <button
                   className="primary-button"
@@ -486,6 +556,20 @@ export function WorkPerson({
                 </button>
               )}
             </div>
+            {canEdit && (
+              <PersonObservation
+                sources={[...sourceIds].map((id) => ({
+                  id,
+                  label: id.startsWith('manual:')
+                    ? 'Ficha creada en la página'
+                    : `${candidates.find((c) => c.id === id)?.project ?? 'Origen'} · Fila ${id.split(':').at(-1)}`,
+                }))}
+                onSaved={onRefresh}
+              />
+            )}
+            {!state.entries.some((e) => sourceIds.has(e.record_id)) && (
+              <p>Aún no hay observaciones guardadas.</p>
+            )}
             {state.tasks
               .filter((t) => t.person_id === person.id)
               .sort((a, b) => a.due.localeCompare(b.due))
@@ -518,7 +602,7 @@ export function WorkPerson({
               .map((e) => (
                 <article className="source-group" key={e.id}>
                   <strong>{e.kind}</strong>
-                  <p>{e.body}</p>
+                  <p className="observation-text">{e.body}</p>
                   <small>
                     {e.author} · {e.created.slice(0, 10)}
                   </small>
@@ -637,7 +721,10 @@ export function WorkPerson({
         <PersonColorEditor
           person={person}
           onClose={() => setColorEditing(false)}
-          onSaved={onRefresh}
+          onSaved={async () => {
+            await onRefresh();
+            setNotice('Cambios guardados correctamente.');
+          }}
         />
       )}
     </>

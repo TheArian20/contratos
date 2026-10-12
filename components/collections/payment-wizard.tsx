@@ -1,4 +1,5 @@
 ﻿'use client';
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
 import { WorkSelect } from './work-select';
 import { useState } from 'react';
 import {
@@ -34,6 +35,8 @@ export function PaymentWizard({
     [details, setDetails] = useState<Record<string, string>>({}),
     [operation] = useState(() => crypto.randomUUID()),
     [done, setDone] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const guard = useUnsavedChanges(dirty && !done, busy);
   const warnings = candidates
     .filter((c) =>
       state.sources.some(
@@ -65,7 +68,7 @@ export function PaymentWizard({
       </section>
     );
   return (
-    <section className="panel payment-wizard">
+    <section className="panel payment-wizard" onChange={() => setDirty(true)}>
       <h2>Registrar pago</h2>
       {warnings.length > 0 && (
         <p className="source-pending">
@@ -321,6 +324,7 @@ export function PaymentWizard({
                     version: account.version,
                     operation,
                   });
+                  guard.markSaved();
                   setDone(true);
                 } catch (err) {
                   setError(workError(err));

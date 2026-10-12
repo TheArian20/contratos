@@ -1,5 +1,7 @@
 'use client';
 import { useState } from 'react';
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
+import { sameDocument } from '@/lib/person-search';
 import {
   Dialog,
   DialogContent,
@@ -25,12 +27,14 @@ export function NewPerson({
   onDone,
   busy,
   projects,
+  existing = [],
 }: {
   onClose: () => void;
   onSave: WorkSave;
   onDone: (id: string) => void;
   busy: boolean;
   projects: string[];
+  existing?: { name: string; document: string }[];
 }) {
   const [requestId] = useState(() => crypto.randomUUID());
   const [data, setData] = useState({
@@ -43,14 +47,28 @@ export function NewPerson({
     contract: '',
   });
   const [color, setColor] = useState(''),
+    [observation, setObservation] = useState(''),
     [reason, setReason] = useState('Registro de nueva persona'),
     [review, setReview] = useState(false),
     [error, setError] = useState('');
+  const guard = useUnsavedChanges(
+    Object.values(data).some(Boolean) ||
+      !!color ||
+      !!observation ||
+      reason !== 'Registro de nueva persona',
+    busy,
+  );
+  const close = () => {
+    if (guard.canLeave()) onClose();
+  };
+  const duplicates = data.document.trim()
+    ? existing.filter((p) => sameDocument(p.document, data.document))
+    : [];
   return (
     <Dialog
       open
       onOpenChange={(v) => {
-        if (!v && !busy) onClose();
+        if (!v && !busy) close();
       }}
     >
       <DialogContent className="work-dialog">
@@ -59,8 +77,8 @@ export function NewPerson({
             {review ? 'Revisar nueva persona' : 'Nueva persona'}
           </DialogTitle>
           <DialogDescription>
-            Crea su ficha sin necesitar un Excel. Podrás añadir documentos y más
-            lotes desde la ficha.
+            Solo el nombre y el proyecto son obligatorios. Los demás datos se
+            pueden completar después.
           </DialogDescription>
         </DialogHeader>
         {error && <p role="alert">{error}</p>}
@@ -80,6 +98,18 @@ export function NewPerson({
               return;
             }
             if (!review) {
+              if (duplicates.length) {
+                setError(
+                  'Ese DNI ya tiene un registro. Busca a la persona antes de crear otra ficha.',
+                );
+                return;
+              }
+              if (data.contract.trim() && !data.lot.trim()) {
+                setError(
+                  'Completa la ubicación del lote al que pertenece el contrato.',
+                );
+                return;
+              }
               setReview(true);
               return;
             }
@@ -89,8 +119,10 @@ export function NewPerson({
                 requestId,
                 color,
                 reason,
+                observation: observation.trim(),
               });
               if (result.id) {
+                guard.markSaved();
                 onDone(result.id);
                 onClose();
               }
@@ -133,6 +165,30 @@ export function NewPerson({
                   </label>
                 ))}
               </div>
+              {duplicates.length > 0 && (
+                <p className="form-error" role="alert">
+                  Ese DNI ya aparece en:{' '}
+                  {duplicates
+                    .slice(0, 3)
+                    .map((p) => p.name)
+                    .join(' · ')}
+                  . Cancela y búscalo para evitar duplicados.
+                </p>
+              )}
+              <label>
+                Observación inicial (opcional)
+                <textarea
+                  rows={3}
+                  maxLength={1500}
+                  value={observation}
+                  placeholder="Por ejemplo: realizar nuevo contrato o llamar para completar sus datos."
+                  onChange={(e) => setObservation(e.target.value)}
+                />
+                <small>
+                  Se guardará en Observaciones de su ficha. {observation.length}
+                  /1500
+                </small>
+              </label>
               <p>
                 {data.project
                   ? `La persona aparecerá en ${data.project}. Puedes completar su lote más adelante.`
@@ -144,7 +200,7 @@ export function NewPerson({
                 confirmarán por lote y concepto.
               </p>
               <label>
-                Motivo / observación inicial
+                Motivo del registro
                 <textarea
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
@@ -166,6 +222,11 @@ export function NewPerson({
                   ))}
               </dl>
               <p>Color: {colorLabel(color)}</p>
+              {observation.trim() && (
+                <p className="observation-text">
+                  <strong>Observación inicial:</strong> {observation}
+                </p>
+              )}
               <p>{reason}</p>
               <p>
                 La ficha quedará registrada con tu cuenta. No se crearán
@@ -178,7 +239,7 @@ export function NewPerson({
               type="button"
               className="secondary-button"
               disabled={busy}
-              onClick={() => (review ? setReview(false) : onClose())}
+              onClick={() => (review ? setReview(false) : close())}
             >
               {review ? 'Volver a editar' : 'Cancelar'}
             </button>

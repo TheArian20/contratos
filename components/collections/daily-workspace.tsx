@@ -40,6 +40,8 @@ import { WorkForm } from './work-form';
 import { NewPerson } from './new-person';
 import { ColorLegend } from './color-legend';
 import { colorStyle, colorLabel } from '@/lib/record-colors';
+import { PersonSearch } from './person-search';
+import { matchesPerson } from '@/lib/person-search';
 import { PaymentWizard } from './payment-wizard';
 const empty: WorkState = {
   people: [],
@@ -106,8 +108,14 @@ export function DailyWorkspace({
     setNotice('');
     try {
       const result = await workCall<{ id?: string }>(path, body);
-      await refresh();
-      setNotice('Guardado. La ficha y el historial están actualizados.');
+      try {
+        await refresh();
+        setNotice('Cambios guardados correctamente.');
+      } catch {
+        setNotice(
+          'Los cambios se guardaron. Pulsa Actualizar para ver la ficha actualizada.',
+        );
+      }
       return result;
     } catch (e) {
       setError(workError(e));
@@ -172,17 +180,12 @@ export function DailyWorkspace({
     setTab('Registrar pago');
   };
   const filteredPeople = state.people.filter((p) =>
-    clean(
-      `${p.name} ${p.document} ${p.phone} ${state.lots
-        .filter((l) => l.person_id === p.id)
-        .map((l) => l.name + ' ' + l.contract)
-        .join(' ')}`,
-    ).includes(clean(query)),
+    matchesPerson(query, p, state.lots),
   );
   const filteredPending = pending.filter((c) =>
-    clean(`${c.name} ${c.document} ${c.lot} ${c.project}`).includes(
-      clean(query),
-    ),
+    clean(
+      `${c.name} ${c.document} ${c.lot} ${c.project} ${c.contract}`,
+    ).includes(clean(query)),
   );
   if (loading)
     return (
@@ -202,6 +205,7 @@ export function DailyWorkspace({
         </div>
         <button
           className="secondary-button"
+          data-navigation
           disabled={busy}
           onClick={() => {
             void refresh()
@@ -212,9 +216,10 @@ export function DailyWorkspace({
           Actualizar
         </button>
       </div>
-      <nav className="daily-nav" aria-label="Trabajo diario">
+      <nav data-navigation className="daily-nav" aria-label="Trabajo diario">
         {[
           { name: 'Hoy', label: 'Inicio', icon: CalendarDays },
+          { name: 'Buscar', label: 'Buscar persona', icon: Search },
           { name: 'Personas', label: 'Personas y lotes', icon: UserRound },
           ...(canEdit
             ? [
@@ -252,7 +257,7 @@ export function DailyWorkspace({
         </p>
       )}
       {notice && <output className="notice">{notice}</output>}
-      {tab === 'Hoy' && (
+      {(tab === 'Hoy' || tab === 'Buscar') && (
         <>
           <section className="panel easy-start">
             <h2>Busca a la persona</h2>
@@ -265,40 +270,37 @@ export function DailyWorkspace({
               className="easy-search"
               onSubmit={(e) => {
                 e.preventDefault();
-                const term = clean(query);
-                if (
-                  term &&
-                  state.people.some((p) =>
-                    clean(
-                      [
-                        p.name,
-                        p.document,
-                        p.phone,
-                        ...state.lots
-                          .filter((l) => l.person_id === p.id)
-                          .map((l) => l.name + ' ' + l.contract),
-                      ].join(' '),
-                    ).includes(term),
-                  )
-                ) {
-                  setTab('Personas');
-                  setPersonId('');
-                  setPage(0);
-                } else onBrowse(query.trim());
+                setTab('Buscar');
               }}
             >
               <label className="search-field">
                 <Search size={20} />
                 <input
                   aria-label="Buscar en toda la base"
-                  placeholder="Escribe aquí un nombre, DNI o lote"
+                  placeholder="Nombre, DNI, contrato, manzana o lote"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
               </label>
               <button className="primary-button">Buscar</button>
             </form>
-            <div className="easy-actions">
+            <div className="easy-actions" data-navigation>
+              <button
+                onClick={() => {
+                  setTab('Buscar');
+                  document
+                    .querySelector<HTMLInputElement>(
+                      '[aria-label="Buscar en toda la base"]',
+                    )
+                    ?.focus();
+                }}
+              >
+                <Search size={27} />
+                <strong>Buscar persona</strong>
+                <span>
+                  Encuentra fichas y expedientes en una sola búsqueda.
+                </span>
+              </button>
               {canEdit && (
                 <button onClick={() => setCreating(true)}>
                   <UserRound size={27} />
@@ -330,127 +332,156 @@ export function DailyWorkspace({
                   <span>Elige la persona, escribe el importe y confirma.</span>
                 </button>
               )}
-              <button onClick={() => onBrowse('')}>
+              <button
+                onClick={() => {
+                  setTab('Pendientes de revisar');
+                  setQuery('');
+                  setPage(0);
+                }}
+              >
                 <ClipboardCheck size={27} />
-                <strong>Contratos y documentos</strong>
+                <strong>Pendientes de revisar</strong>
                 <span>
-                  Busca a la persona, pulsa Abrir ficha y entra en Documentos.
+                  Revisa los registros que todavía no tienen ficha de trabajo.
                 </span>
               </button>
             </div>
           </section>
-          <h2 className="easy-section-title">Lo que necesitas revisar hoy</h2>
-          <div className="secure-summary">
-            <div>
-              <span>Personas con ficha</span>
-              <strong>{state.people.length}</strong>
-            </div>
-            <div>
-              <span>Total pendiente confirmado</span>
-              <strong>
-                {balances.some((a) => a.balance !== null)
-                  ? soles(balances.reduce((n, a) => n + (a.balance ?? 0), 0))
-                  : 'Por confirmar'}
-              </strong>
-              <small>
-                {balances.filter((a) => a.balance === null).length} cuentas por
-                confirmar · no incluidas
-              </small>
-            </div>
-            <div>
-              <span>Cuotas vencidas</span>
-              <strong>{due.filter((i) => i.due < today).length}</strong>
-              <small>Solo vencimientos programados</small>
-            </div>
-            <div>
-              <span>Tareas pendientes</span>
-              <strong>{state.tasks.filter((t) => !t.done).length}</strong>
-            </div>
-          </div>
-          {!state.people.length && (
-            <section className="panel onboarding">
-              <h2>Empieza buscando una persona</h2>
-              <p>
-                Puedes consultar el Excel desde el buscador de arriba. Para
-                registrar pagos, Administración debe revisar primero la ficha,
-                el lote y los importes de esa persona.
-              </p>
-              <button
-                className="primary-button"
-                onClick={() => setTab('Pendientes de revisar')}
-              >
-                Revisar personas del Excel
-              </button>
-            </section>
+          {tab === 'Buscar' && (
+            <PersonSearch
+              key={query}
+              query={query}
+              state={state}
+              candidates={candidates}
+              onPerson={openPerson}
+              onSource={onSource}
+            />
           )}
-          <div className="daily-columns">
-            <section className="panel secure-content">
-              <h2>Cuotas vencidas y próximos 7 días</h2>
-              {due
-                .filter((i) => i.due <= until)
-                .map((i) => {
-                  const { a, l, p } = ownerOf(i.account_id);
-                  return (
-                    <div className="agenda-work-row" key={i.id}>
-                      <div>
-                        <strong>{p?.name}</strong>
-                        <p>
-                          {l?.name} · {a?.concept} · {soles(i.remaining)}
-                        </p>
-                        <small className={i.due < today ? 'overdue-text' : ''}>
-                          {i.due < today ? 'Vencida' : 'Vence'}: {i.due}
-                        </small>
+          {tab === 'Hoy' && (
+            <>
+              <h2 className="easy-section-title">
+                Lo que necesitas revisar hoy
+              </h2>
+              <div className="secure-summary">
+                <div>
+                  <span>Personas con ficha</span>
+                  <strong>{state.people.length}</strong>
+                </div>
+                <div>
+                  <span>Total pendiente confirmado</span>
+                  <strong>
+                    {balances.some((a) => a.balance !== null)
+                      ? soles(
+                          balances.reduce((n, a) => n + (a.balance ?? 0), 0),
+                        )
+                      : 'Por confirmar'}
+                  </strong>
+                  <small>
+                    {balances.filter((a) => a.balance === null).length} cuentas
+                    por confirmar · no incluidas
+                  </small>
+                </div>
+                <div>
+                  <span>Cuotas vencidas</span>
+                  <strong>{due.filter((i) => i.due < today).length}</strong>
+                  <small>Solo vencimientos programados</small>
+                </div>
+                <div>
+                  <span>Tareas pendientes</span>
+                  <strong>{state.tasks.filter((t) => !t.done).length}</strong>
+                </div>
+              </div>
+              {!state.people.length && (
+                <section className="panel onboarding">
+                  <h2>Empieza buscando una persona</h2>
+                  <p>
+                    Puedes consultar el Excel desde el buscador de arriba. Para
+                    registrar pagos, Administración debe revisar primero la
+                    ficha, el lote y los importes de esa persona.
+                  </p>
+                  <button
+                    className="primary-button"
+                    onClick={() => setTab('Pendientes de revisar')}
+                  >
+                    Revisar personas del Excel
+                  </button>
+                </section>
+              )}
+              <div className="daily-columns">
+                <section className="panel secure-content">
+                  <h2>Cuotas vencidas y próximos 7 días</h2>
+                  {due
+                    .filter((i) => i.due <= until)
+                    .map((i) => {
+                      const { a, l, p } = ownerOf(i.account_id);
+                      return (
+                        <div className="agenda-work-row" key={i.id}>
+                          <div>
+                            <strong>{p?.name}</strong>
+                            <p>
+                              {l?.name} · {a?.concept} · {soles(i.remaining)}
+                            </p>
+                            <small
+                              className={i.due < today ? 'overdue-text' : ''}
+                            >
+                              {i.due < today ? 'Vencida' : 'Vence'}: {i.due}
+                            </small>
+                          </div>
+                          <button
+                            className="secondary-button"
+                            onClick={() => p && openPerson(p.id)}
+                          >
+                            Ver cuenta
+                          </button>
+                        </div>
+                      );
+                    })}
+                  {!due.some((i) => i.due <= until) && (
+                    <p>
+                      No hay cuotas programadas por cobrar en este período. Los
+                      registros sin fechas confirmadas no se clasifican como
+                      vencidos.
+                    </p>
+                  )}
+                </section>
+                <section className="panel secure-content">
+                  <h2>Compromisos y gestiones pendientes</h2>
+                  {state.tasks
+                    .filter((t) => !t.done)
+                    .sort((a, b) => a.due.localeCompare(b.due))
+                    .map((t) => (
+                      <div className="agenda-work-row" key={t.id}>
+                        <div>
+                          <strong>
+                            {
+                              state.people.find((p) => p.id === t.person_id)
+                                ?.name
+                            }
+                          </strong>
+                          <p>
+                            {t.kind} · {t.due}
+                            {t.amount !== null ? ` · ${soles(t.amount)}` : ''}
+                          </p>
+                          <small>{t.description}</small>
+                        </div>
+                        <button
+                          className="secondary-button"
+                          onClick={() => openPerson(t.person_id)}
+                        >
+                          Abrir
+                        </button>
                       </div>
-                      <button
-                        className="secondary-button"
-                        onClick={() => p && openPerson(p.id)}
-                      >
-                        Ver cuenta
-                      </button>
-                    </div>
-                  );
-                })}
-              {!due.some((i) => i.due <= until) && (
-                <p>
-                  No hay cuotas programadas por cobrar en este período. Los
-                  registros sin fechas confirmadas no se clasifican como
-                  vencidos.
-                </p>
-              )}
-            </section>
-            <section className="panel secure-content">
-              <h2>Compromisos y gestiones pendientes</h2>
-              {state.tasks
-                .filter((t) => !t.done)
-                .sort((a, b) => a.due.localeCompare(b.due))
-                .map((t) => (
-                  <div className="agenda-work-row" key={t.id}>
-                    <div>
-                      <strong>
-                        {state.people.find((p) => p.id === t.person_id)?.name}
-                      </strong>
-                      <p>
-                        {t.kind} · {t.due}
-                        {t.amount !== null ? ` · ${soles(t.amount)}` : ''}
-                      </p>
-                      <small>{t.description}</small>
-                    </div>
-                    <button
-                      className="secondary-button"
-                      onClick={() => openPerson(t.person_id)}
-                    >
-                      Abrir
-                    </button>
-                  </div>
-                ))}
-              {!state.tasks.some((t) => !t.done) && (
-                <p>
-                  No tienes compromisos ni gestiones pendientes. Puedes
-                  registrarlos desde una ficha.
-                </p>
-              )}
-            </section>
-          </div>
+                    ))}
+                  {!state.tasks.some((t) => !t.done) && (
+                    <p>
+                      No tienes compromisos ni gestiones pendientes. Puedes
+                      registrarlos desde una ficha.
+                    </p>
+                  )}
+                </section>
+              </div>
+            </>
+          )}
         </>
       )}
       {tab === 'Personas' && !person && (
@@ -486,7 +517,7 @@ export function DailyWorkspace({
             <Search size={18} />
             <input
               aria-label="Buscar persona confirmada"
-              placeholder="Nombre, DNI o teléfono"
+              placeholder="Nombre, DNI, teléfono, proyecto, contrato o lote"
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -544,6 +575,7 @@ export function DailyWorkspace({
       )}
       {tab === 'Personas' && person && (
         <WorkPerson
+          key={person.id}
           state={state}
           person={person}
           candidates={candidates}
@@ -687,6 +719,7 @@ export function DailyWorkspace({
       )}
       {creating && (
         <NewPerson
+          existing={[...state.people, ...candidates]}
           projects={availableProjects(data)}
           onClose={() => setCreating(false)}
           onSave={save}

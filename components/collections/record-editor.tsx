@@ -1,4 +1,5 @@
 'use client';
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
 import { useState } from 'react';
 import {
   Dialog,
@@ -66,12 +67,16 @@ export function RecordEditor({
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
   const changed = editDifferences(before, values).length > 0 || !!note.trim();
+  const guard = useUnsavedChanges(changed || !!reason, busy);
+  const close = () => {
+    if (guard.canLeave()) onClose();
+  };
   const pinkDebt = pinkMeansPaid(project);
   return (
     <Dialog
       open
       onOpenChange={(open) => {
-        if (!open && !busy) onClose();
+        if (!open && !busy) close();
       }}
     >
       <DialogContent className="work-dialog record-editor">
@@ -128,6 +133,7 @@ export function RecordEditor({
             setBusy(true);
             try {
               await onSave(values, note.trim(), reason.trim());
+              guard.markSaved();
               onClose();
             } catch (e) {
               setError(e instanceof Error ? e.message : 'No se pudo guardar.');
@@ -263,7 +269,7 @@ export function RecordEditor({
               type="button"
               className="secondary-button"
               disabled={busy}
-              onClick={() => (review ? setReview(false) : onClose())}
+              onClick={() => (review ? setReview(false) : close())}
             >
               {review ? 'Volver a editar' : 'Cancelar'}
             </button>

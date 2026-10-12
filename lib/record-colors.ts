@@ -35,6 +35,23 @@ export const validColor = (value: unknown): value is string =>
   typeof value === 'string' && recordColors.some((c) => c.value === value);
 export const pinkMeansPaid = (sheet: string) =>
   sheet.trim().toUpperCase() === 'CIUDAD DE DIOS';
+export function colorMeaning(color: string | undefined, project: string) {
+  if (!color) return 'Sin etiqueta';
+  if (color === 'pink')
+    return pinkMeansPaid(project)
+      ? 'Sin deuda'
+      : 'Etiqueta rosada; no confirma la deuda';
+  const key = project.trim().toUpperCase();
+  const legend =
+    key === 'CASAS'
+      ? colorLegends.Casas
+      : key === 'CIUDAD DE DIOS' || key === 'SERVICIOS - CIUDAD DE DIOS'
+        ? colorLegends['Ciudad de Dios / Servicios']
+        : null;
+  return (
+    legend?.find(([value]) => value === color)?.[1] ?? 'Etiqueta de seguimiento'
+  );
+}
 export const colorLegends = {
   Casas: [
     ['green', 'Cancelaron totalidad'],
