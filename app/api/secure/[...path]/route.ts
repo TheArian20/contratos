@@ -1,6 +1,7 @@
 import { loadRecordCorrections } from '@/lib/record-corrections-store';
 import { pinkMeansPaid } from '@/lib/record-colors';
 import { reconcileDataset } from '@/lib/dataset-update';
+import { exportBackup } from '@/lib/backup-api';
 import { workRoute } from '@/lib/work-api';
 import { bindings } from '@/lib/server-store';
 import {
@@ -235,6 +236,20 @@ async function handler(request: Request) {
       if (user.role === 'Consulta')
         fail(403, 'Tu cuenta permite solo consultar.');
     };
+    if (action === 'backup' && request.method === 'GET') {
+      admin();
+      try {
+        return await exportBackup(DB, FILES, user.id);
+      } catch (e) {
+        return json(
+          {
+            error:
+              e instanceof Error ? e.message : 'No se pudo crear el respaldo.',
+          },
+          503,
+        );
+      }
+    }
     if (action === 'users') {
       admin();
       if (!write) {
@@ -842,7 +857,7 @@ async function handler(request: Request) {
         headers: {
           'Content-Type':
             object.httpMetadata?.contentType ?? 'application/octet-stream',
-          'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(doc.name)}`,
+          'Content-Disposition': `${url.searchParams.get('preview') === '1' && ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(object.httpMetadata?.contentType ?? '') ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(doc.name)}`,
           'Cache-Control': 'private, no-store',
           'X-Content-Type-Options': 'nosniff',
         },

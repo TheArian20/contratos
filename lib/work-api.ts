@@ -42,7 +42,7 @@ export async function workRoute(
       action = url.pathname.split('/').at(-1);
     if (action === 'desk-project-people' && request.method === 'GET') {
       const result =
-        await DB.prepare(`SELECT DISTINCT p.id,p.name,p.document,m.project FROM people p JOIN (
+        await DB.prepare(`SELECT DISTINCT p.id,p.name,p.document,m.project,COALESCE((SELECT value FROM settings WHERE key='person-color:'||p.id),'') color FROM people p JOIN (
         SELECT substr(key,16) person_id,value project FROM settings WHERE key LIKE 'person-project:%'
         UNION SELECT person_id,project FROM lots
       ) m ON m.person_id=p.id WHERE EXISTS(SELECT 1 FROM person_sources s WHERE s.person_id=p.id AND s.record_id LIKE 'manual:%') ORDER BY p.name,m.project`).all();

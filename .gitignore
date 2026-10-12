@@ -46,3 +46,7 @@ next-env.d.ts
 /artifacts/
 
 .dev.vars*
+
+# Local Python tooling cache
+__pycache__/
+*.pyc

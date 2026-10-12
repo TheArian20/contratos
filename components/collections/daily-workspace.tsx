@@ -35,6 +35,9 @@ import {
   type WorkModal,
   type Candidate,
 } from './work-shared';
+import { ReportPanel } from './report-panel';
+import { confirmedSummary } from '@/lib/reports';
+import { recordColors } from '@/lib/record-colors';
 import { WorkPerson } from './work-person';
 import { WorkForm } from './work-form';
 import { NewPerson } from './new-person';
@@ -60,14 +63,20 @@ export function DailyWorkspace({
   role,
   onSource,
   onBrowse,
+  author,
   initialPersonId = '',
 }: {
+  author: string;
   initialPersonId?: string;
   data: Dataset | null;
   role: string;
   onBrowse: (query: string) => void;
   onSource: (sheet: number, row: number, hash?: string) => void;
 }) {
+  const [projectFilter, setProjectFilter] = useState(''),
+    [colorFilter, setColorFilter] = useState('all'),
+    [statusFilter, setStatusFilter] = useState(''),
+    [sort, setSort] = useState('name');
   const [creating, setCreating] = useState(false);
   const [state, setState] = useState<WorkState>(empty),
     [loading, setLoading] = useState(true),
@@ -179,9 +188,38 @@ export function DailyWorkspace({
     setPaymentTarget(id);
     setTab('Registrar pago');
   };
-  const filteredPeople = state.people.filter((p) =>
-    matchesPerson(query, p, state.lots),
-  );
+  const filteredPeople = state.people
+    .filter((p) => {
+      const lots = state.lots.filter((l) => l.person_id === p.id),
+        accounts = state.accounts.filter((a) =>
+          lots.some((l) => l.id === a.lot_id),
+        ),
+        summary = confirmedSummary(accounts, state);
+      return (
+        matchesPerson(query, p, state.lots) &&
+        (!projectFilter ||
+          p.project === projectFilter ||
+          lots.some((l) => l.project === projectFilter)) &&
+        (colorFilter === 'all' || (p.color || '') === colorFilter) &&
+        (!statusFilter ||
+          (statusFilter === 'pending'
+            ? !accounts.length || summary.unknown > 0
+            : statusFilter === 'debt'
+              ? summary.balance > 0
+              : summary.confirmed > 0 &&
+                summary.unknown === 0 &&
+                summary.balance === 0))
+      );
+    })
+    .sort(
+      (a, b) =>
+        (sort.endsWith('-desc') ? -1 : 1) *
+        String(sort.startsWith('document') ? a.document : a.name).localeCompare(
+          String(sort.startsWith('document') ? b.document : b.name),
+          'es',
+          { numeric: true, sensitivity: 'base' },
+        ),
+    );
   const filteredPending = pending.filter((c) =>
     clean(
       `${c.name} ${c.document} ${c.lot} ${c.project} ${c.contract}`,
@@ -221,6 +259,7 @@ export function DailyWorkspace({
           { name: 'Hoy', label: 'Inicio', icon: CalendarDays },
           { name: 'Buscar', label: 'Buscar persona', icon: Search },
           { name: 'Personas', label: 'Personas y lotes', icon: UserRound },
+          { name: 'Reportes', label: 'Reportes', icon: ClipboardCheck },
           ...(canEdit
             ? [
                 {
@@ -243,7 +282,10 @@ export function DailyWorkspace({
               setTab(item.name);
               setQuery('');
               setPage(0);
-              if (item.name === 'Personas') setPersonId('');
+              if (item.name === 'Personas') {
+                setPersonId('');
+                setStatusFilter('');
+              }
             }}
           >
             <item.icon size={19} />
@@ -365,10 +407,38 @@ export function DailyWorkspace({
               <div className="secure-summary">
                 <div>
                   <span>Personas con ficha</span>
+                  <button
+                    className="metric-link"
+                    onClick={() => {
+                      setTab('Personas');
+                      setPersonId('');
+                      setQuery('');
+                      setProjectFilter('');
+                      setColorFilter('all');
+                      setStatusFilter('');
+                      setPage(0);
+                    }}
+                  >
+                    Ver personas →
+                  </button>
                   <strong>{state.people.length}</strong>
                 </div>
                 <div>
                   <span>Total pendiente confirmado</span>
+                  <button
+                    className="metric-link"
+                    onClick={() => {
+                      setTab('Personas');
+                      setPersonId('');
+                      setQuery('');
+                      setProjectFilter('');
+                      setColorFilter('all');
+                      setStatusFilter('debt');
+                      setPage(0);
+                    }}
+                  >
+                    Ver cuentas →
+                  </button>
                   <strong>
                     {balances.some((a) => a.balance !== null)
                       ? soles(
@@ -383,11 +453,31 @@ export function DailyWorkspace({
                 </div>
                 <div>
                   <span>Cuotas vencidas</span>
+                  <button
+                    className="metric-link"
+                    onClick={() =>
+                      document
+                        .getElementById('agenda-cuotas')
+                        ?.scrollIntoView({ behavior: 'smooth' })
+                    }
+                  >
+                    Ver vencimientos →
+                  </button>
                   <strong>{due.filter((i) => i.due < today).length}</strong>
                   <small>Solo vencimientos programados</small>
                 </div>
                 <div>
                   <span>Tareas pendientes</span>
+                  <button
+                    className="metric-link"
+                    onClick={() =>
+                      document
+                        .getElementById('agenda-tareas')
+                        ?.scrollIntoView({ behavior: 'smooth' })
+                    }
+                  >
+                    Ver pendientes →
+                  </button>
                   <strong>{state.tasks.filter((t) => !t.done).length}</strong>
                 </div>
               </div>
@@ -409,7 +499,7 @@ export function DailyWorkspace({
               )}
               <div className="daily-columns">
                 <section className="panel secure-content">
-                  <h2>Cuotas vencidas y próximos 7 días</h2>
+                  <h2 id="agenda-cuotas">Cuotas vencidas y próximos 7 días</h2>
                   {due
                     .filter((i) => i.due <= until)
                     .map((i) => {
@@ -445,7 +535,7 @@ export function DailyWorkspace({
                   )}
                 </section>
                 <section className="panel secure-content">
-                  <h2>Compromisos y gestiones pendientes</h2>
+                  <h2 id="agenda-tareas">Compromisos y gestiones pendientes</h2>
                   {state.tasks
                     .filter((t) => !t.done)
                     .sort((a, b) => a.due.localeCompare(b.due))
@@ -484,6 +574,9 @@ export function DailyWorkspace({
           )}
         </>
       )}
+      {tab === 'Reportes' && (
+        <ReportPanel state={state} author={author} admin={admin} />
+      )}
       {tab === 'Personas' && !person && (
         <section className="panel secure-content">
           <div className="excel-controls">
@@ -513,6 +606,92 @@ export function DailyWorkspace({
             </button>
           </div>
           <ColorLegend />
+          <div className="secure-filters">
+            <label>
+              Proyecto
+              <select
+                value={projectFilter}
+                onChange={(e) => {
+                  setProjectFilter(e.target.value);
+                  setPage(0);
+                }}
+              >
+                <option value="">Todos</option>
+                {[
+                  ...new Set(
+                    [
+                      ...state.people.map((p) => p.project),
+                      ...state.lots.map((l) => l.project),
+                    ].filter(Boolean),
+                  ),
+                ]
+                  .sort()
+                  .map((p) => (
+                    <option key={p}>{p}</option>
+                  ))}
+              </select>
+            </label>
+            <label>
+              Color
+              <select
+                value={colorFilter}
+                onChange={(e) => {
+                  setColorFilter(e.target.value);
+                  setPage(0);
+                }}
+              >
+                <option value="all">Todos</option>
+                {recordColors.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Estado de cuentas
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(0);
+                }}
+              >
+                <option value="">Todos</option>
+                <option value="pending">Por confirmar</option>
+                <option value="debt">Con saldo confirmado</option>
+                <option value="paid">Cuentas confirmadas en cero</option>
+              </select>
+            </label>
+            <label>
+              Ordenar
+              <select
+                value={sort}
+                onChange={(e) => {
+                  setSort(e.target.value);
+                  setPage(0);
+                }}
+              >
+                <option value="name">Nombre A–Z</option>
+                <option value="name-desc">Nombre Z–A</option>
+                <option value="document">DNI ascendente</option>
+                <option value="document-desc">DNI descendente</option>
+              </select>
+            </label>
+            <button
+              className="secondary-button"
+              onClick={() => {
+                setProjectFilter('');
+                setColorFilter('all');
+                setStatusFilter('');
+                setSort('name');
+                setQuery('');
+                setPage(0);
+              }}
+            >
+              Limpiar filtros
+            </button>
+          </div>
           <label className="search-field">
             <Search size={18} />
             <input
@@ -528,8 +707,52 @@ export function DailyWorkspace({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Persona</TableHead>
-                <TableHead>Identificación</TableHead>
+                <TableHead
+                  aria-sort={
+                    sort === 'name'
+                      ? 'ascending'
+                      : sort === 'name-desc'
+                        ? 'descending'
+                        : 'none'
+                  }
+                >
+                  <button
+                    className="table-sort"
+                    onClick={() => {
+                      setSort(sort === 'name' ? 'name-desc' : 'name');
+                      setPage(0);
+                    }}
+                  >
+                    Persona{' '}
+                    {sort === 'name' ? '↑' : sort === 'name-desc' ? '↓' : '↕'}
+                  </button>
+                </TableHead>
+                <TableHead
+                  aria-sort={
+                    sort === 'document'
+                      ? 'ascending'
+                      : sort === 'document-desc'
+                        ? 'descending'
+                        : 'none'
+                  }
+                >
+                  <button
+                    className="table-sort"
+                    onClick={() => {
+                      setSort(
+                        sort === 'document' ? 'document-desc' : 'document',
+                      );
+                      setPage(0);
+                    }}
+                  >
+                    Identificación{' '}
+                    {sort === 'document'
+                      ? '↑'
+                      : sort === 'document-desc'
+                        ? '↓'
+                        : '↕'}
+                  </button>
+                </TableHead>
                 <TableHead>Lotes confirmados</TableHead>
                 <TableHead>Acción</TableHead>
               </TableRow>
@@ -575,6 +798,7 @@ export function DailyWorkspace({
       )}
       {tab === 'Personas' && person && (
         <WorkPerson
+          author={author}
           key={person.id}
           state={state}
           person={person}

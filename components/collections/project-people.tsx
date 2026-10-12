@@ -6,13 +6,25 @@ export function ProjectPeople({
   project,
   query,
   onOpen,
+  color = 'all',
+  sort = 'name',
+  unidentified = false,
 }: {
+  color?: string;
+  sort?: string;
+  unidentified?: boolean;
   project?: string;
   query: string;
   onOpen: (id: string) => void;
 }) {
   const [rows, setRows] = useState<
-    Array<{ id: string; name: string; document: string; project: string }>
+    Array<{
+      id: string;
+      name: string;
+      document: string;
+      project: string;
+      color: string;
+    }>
   >([]);
   const [error, setError] = useState(''),
     [loading, setLoading] = useState(true);
@@ -33,11 +45,23 @@ export function ProjectPeople({
       active = false;
     };
   }, [retry]);
-  const matches = rows.filter(
-    (r) =>
-      (!project || r.project === project) &&
-      clean(`${r.name} ${r.document} ${r.project}`).includes(clean(query)),
-  );
+  const matches = rows
+    .filter(
+      (r) =>
+        (!project || r.project === project) &&
+        (color === 'all' || r.color === color) &&
+        (!unidentified || !r.document) &&
+        clean(`${r.name} ${r.document} ${r.project}`).includes(clean(query)),
+    )
+    .sort(
+      (a, b) =>
+        (sort.endsWith('-desc') ? -1 : 1) *
+        String(sort.startsWith('document') ? a.document : a.name).localeCompare(
+          String(sort.startsWith('document') ? b.document : b.name),
+          'es',
+          { numeric: true },
+        ),
+    );
   if (error)
     return (
       <p role="alert">

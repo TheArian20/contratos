@@ -1,4 +1,7 @@
 'use client';
+import { BackupPanel } from './backup-panel';
+import { recordColors } from '@/lib/record-colors';
+import { DocumentLibrary } from './document-library';
 import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -7,7 +10,6 @@ import {
   LogOut,
   Users,
   ShieldCheck,
-  FileText,
   ChevronRight,
   Download,
   Menu,
@@ -102,6 +104,9 @@ async function api<T = { ok: boolean }>(
 const errorText = (e: unknown) =>
   e instanceof Error ? e.message : 'Ocurrió un error. Inténtalo de nuevo.';
 export function SecurePortal() {
+  const [colorFilter, setColorFilter] = useState('all');
+  const [sort, setSort] = useState('origin');
+  const [projectFilter, setProjectFilter] = useState('');
   const [focusPerson, setFocusPerson] = useState('');
   const [user, setUser] = useState<User | null>(null),
     [loading, setLoading] = useState(true),
@@ -190,47 +195,74 @@ export function SecurePortal() {
   );
   const matches = useMemo(
     () =>
-      records.filter(({ record }) => {
-        if (
-          [
-            'Pagado totalmente · sin deuda según Excel',
-            'Retirado de Ciudad de Dios',
-            'Sin lote vigente',
-            'Denunciante',
-            'No cobrar',
-            'Revisión de administración',
-          ].includes(filter) &&
-          !(filter === 'Pagado totalmente · sin deuda según Excel'
-            ? record.situation.paidInFull
-            : record.situation.labels.includes(filter))
-        )
-          return false;
-        if (filter === 'Expedientes' && record.kind !== 'Expediente')
-          return false;
-        if (
-          filter === 'Pendientes de identificar' &&
-          (record.kind !== 'Expediente' || !!record.document)
-        )
-          return false;
-        if (
-          filter === 'Anotaciones y encabezados' &&
-          record.kind === 'Expediente'
-        )
-          return false;
-        const term = clean(query);
-        return (
-          !term ||
-          Object.values(recordValues(record)).some((v) =>
-            clean(String(v)).includes(term),
-          ) ||
-          clean(record.lot).includes(term) ||
-          record.observations.some((f) =>
-            clean(cellText(f.cell)).includes(term),
-          ) ||
-          record.fields.some((f) => clean(cellText(f.cell)).includes(term))
-        );
-      }),
-    [records, filter, query],
+      records
+        .filter(({ record, sheet: si }) => {
+          if (projectFilter && data?.sheets[si]?.name !== projectFilter)
+            return false;
+          if (colorFilter !== 'all' && (record.color || '') !== colorFilter)
+            return false;
+          if (
+            [
+              'Pagado totalmente · sin deuda según Excel',
+              'Retirado de Ciudad de Dios',
+              'Sin lote vigente',
+              'Denunciante',
+              'No cobrar',
+              'Revisión de administración',
+            ].includes(filter) &&
+            !(filter === 'Pagado totalmente · sin deuda según Excel'
+              ? record.situation.paidInFull
+              : record.situation.labels.includes(filter))
+          )
+            return false;
+          if (filter === 'Expedientes' && record.kind !== 'Expediente')
+            return false;
+          if (
+            filter === 'Pendientes de identificar' &&
+            (record.kind !== 'Expediente' || !!record.document)
+          )
+            return false;
+          if (
+            filter === 'Anotaciones y encabezados' &&
+            record.kind === 'Expediente'
+          )
+            return false;
+          const term = clean(query);
+          return (
+            !term ||
+            Object.values(recordValues(record)).some((v) =>
+              clean(String(v)).includes(term),
+            ) ||
+            clean(record.lot).includes(term) ||
+            record.observations.some((f) =>
+              clean(cellText(f.cell)).includes(term),
+            ) ||
+            record.fields.some((f) => clean(cellText(f.cell)).includes(term))
+          );
+        })
+        .sort((a, b) =>
+          sort === 'origin'
+            ? 0
+            : (sort.endsWith('-desc') ? -1 : 1) *
+              String(
+                sort.startsWith('document')
+                  ? a.record.document
+                  : sort.startsWith('lot')
+                    ? a.record.lot
+                    : a.record.person,
+              ).localeCompare(
+                String(
+                  sort.startsWith('document')
+                    ? b.record.document
+                    : sort.startsWith('lot')
+                      ? b.record.lot
+                      : b.record.person,
+                ),
+                'es',
+                { numeric: true, sensitivity: 'base' },
+              ),
+        ),
+    [records, filter, query, colorFilter, sort, projectFilter, data],
   );
   const selectionSheets = sourceData
     ? sourceData.sheets.map((s, i) =>
@@ -244,6 +276,9 @@ export function SecurePortal() {
     : null;
   const choose = (index: number | null) => {
     setActive(index);
+    setProjectFilter('');
+    setColorFilter('all');
+    setSort('origin');
     setPage(0);
     setFilter('Todos los registros');
     setView('Base');
@@ -339,6 +374,16 @@ export function SecurePortal() {
           {user.role === 'Administrador' && (
             <button
               onClick={() => {
+                setView('Respaldos');
+                setMenu(false);
+              }}
+            >
+              Respaldos y recuperación
+            </button>
+          )}
+          {user.role === 'Administrador' && (
+            <button
+              onClick={() => {
                 if (data?.sourceHash !== currentHash) void refresh();
                 setView('Actualizar base');
                 setMenu(false);
@@ -416,6 +461,7 @@ export function SecurePortal() {
           )}
           {view === 'Trabajo diario' ? (
             <DailyWorkspace
+              author={user.name}
               key={focusPerson}
               initialPersonId={focusPerson}
               data={data}
@@ -442,6 +488,8 @@ export function SecurePortal() {
             />
           ) : view === 'Actualizar base' ? (
             <DatasetUpdatePanel current={data} onDone={refresh} />
+          ) : view === 'Respaldos' && user.role === 'Administrador' ? (
+            <BackupPanel />
           ) : view === 'Equipo' ? (
             <TeamPanel current={user} />
           ) : view === 'Cuenta' ? (
@@ -593,6 +641,58 @@ export function SecurePortal() {
                     </div>
                     <ColorLegend />
                     <div className="secure-filters">
+                      {active === null && (
+                        <label>
+                          Proyecto
+                          <select
+                            value={projectFilter}
+                            onChange={(e) => {
+                              setProjectFilter(e.target.value);
+                              setPage(0);
+                            }}
+                          >
+                            <option value="">Todos los proyectos</option>
+                            {sheets.map((s) => (
+                              <option key={s.name}>{s.name}</option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
+                      <label>
+                        Color
+                        <select
+                          value={colorFilter}
+                          onChange={(e) => {
+                            setColorFilter(e.target.value);
+                            setPage(0);
+                          }}
+                        >
+                          <option value="all">Todos los colores</option>
+                          {recordColors.map((c) => (
+                            <option key={c.value} value={c.value}>
+                              {c.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        Ordenar
+                        <select
+                          value={sort}
+                          onChange={(e) => {
+                            setSort(e.target.value);
+                            setPage(0);
+                          }}
+                        >
+                          <option value="origin">Orden del archivo</option>
+                          <option value="name">Nombre A–Z</option>
+                          <option value="name-desc">Nombre Z–A</option>
+                          <option value="document">DNI ascendente</option>
+                          <option value="document-desc">DNI descendente</option>
+                          <option value="lot">Lote ascendente</option>
+                          <option value="lot-desc">Lote descendente</option>
+                        </select>
+                      </label>
                       <label className="search-field">
                         <Search size={18} />
                         <input
@@ -629,6 +729,9 @@ export function SecurePortal() {
                         className="secondary-button"
                         onClick={() => {
                           setQuery('');
+                          setColorFilter('all');
+                          setSort('origin');
+                          setProjectFilter('');
                           setFilter('Todos los registros');
                           setPage(0);
                         }}
@@ -636,22 +739,103 @@ export function SecurePortal() {
                         Limpiar
                       </button>
                     </div>
-                    {data?.sourceHash === currentHash && (
-                      <ProjectPeople
-                        project={sheet?.name}
-                        query={query}
-                        onOpen={(id) => {
-                          setFocusPerson(id);
-                          setView('Trabajo diario');
-                        }}
-                      />
-                    )}
+                    {data?.sourceHash === currentHash &&
+                      [
+                        'Todos los registros',
+                        'Expedientes',
+                        'Pendientes de identificar',
+                      ].includes(filter) && (
+                        <ProjectPeople
+                          color={colorFilter}
+                          sort={sort}
+                          unidentified={filter === 'Pendientes de identificar'}
+                          project={sheet?.name || projectFilter || undefined}
+                          query={query}
+                          onOpen={(id) => {
+                            setFocusPerson(id);
+                            setView('Trabajo diario');
+                          }}
+                        />
+                      )}
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Persona / descripción</TableHead>
-                          <TableHead>Identificación / contrato</TableHead>
-                          <TableHead>Lote / ubicación</TableHead>
+                          <TableHead
+                            aria-sort={
+                              sort === 'name'
+                                ? 'ascending'
+                                : sort === 'name-desc'
+                                  ? 'descending'
+                                  : 'none'
+                            }
+                          >
+                            <button
+                              className="table-sort"
+                              onClick={() => {
+                                setSort(sort === 'name' ? 'name-desc' : 'name');
+                                setPage(0);
+                              }}
+                            >
+                              Persona / descripción{' '}
+                              {sort === 'name'
+                                ? '↑'
+                                : sort === 'name-desc'
+                                  ? '↓'
+                                  : '↕'}
+                            </button>
+                          </TableHead>
+                          <TableHead
+                            aria-sort={
+                              sort === 'document'
+                                ? 'ascending'
+                                : sort === 'document-desc'
+                                  ? 'descending'
+                                  : 'none'
+                            }
+                          >
+                            <button
+                              className="table-sort"
+                              onClick={() => {
+                                setSort(
+                                  sort === 'document'
+                                    ? 'document-desc'
+                                    : 'document',
+                                );
+                                setPage(0);
+                              }}
+                            >
+                              Identificación / contrato{' '}
+                              {sort === 'document'
+                                ? '↑'
+                                : sort === 'document-desc'
+                                  ? '↓'
+                                  : '↕'}
+                            </button>
+                          </TableHead>
+                          <TableHead
+                            aria-sort={
+                              sort === 'lot'
+                                ? 'ascending'
+                                : sort === 'lot-desc'
+                                  ? 'descending'
+                                  : 'none'
+                            }
+                          >
+                            <button
+                              className="table-sort"
+                              onClick={() => {
+                                setSort(sort === 'lot' ? 'lot-desc' : 'lot');
+                                setPage(0);
+                              }}
+                            >
+                              Lote / ubicación{' '}
+                              {sort === 'lot'
+                                ? '↑'
+                                : sort === 'lot-desc'
+                                  ? '↓'
+                                  : '↕'}
+                            </button>
+                          </TableHead>
                           <TableHead>Origen</TableHead>
                           <TableHead>Abrir</TableHead>
                         </TableRow>
@@ -1423,26 +1607,7 @@ function RecordPanel({
                 guardarlo en el expediente.
               </p>
               <h3 className="source-group">Archivos del expediente</h3>
-              {extras.documents.map((doc) => (
-                <a
-                  className="document-row"
-                  download
-                  href={`/api/secure/document?id=${doc.id}`}
-                  key={doc.id}
-                >
-                  <FileText size={20} />
-                  <span>
-                    {doc.name}
-                    <small>
-                      {doc.category} · {doc.author}
-                    </small>
-                  </span>
-                  <Download size={18} />
-                </a>
-              ))}
-              {!extras.documents.length && (
-                <p>No hay archivos adjuntos todavía.</p>
-              )}
+              <DocumentLibrary documents={extras.documents} />
               {user.role !== 'Consulta' && (
                 <form
                   className="secure-form source-group"

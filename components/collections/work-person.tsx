@@ -1,4 +1,7 @@
 ﻿'use client';
+import { DocumentLibrary } from './document-library';
+import { ReportPanel } from './report-panel';
+import { confirmedSummary } from '@/lib/reports';
 import { PersonObservation } from './person-observation';
 import { ColorLegend } from './color-legend';
 import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
@@ -6,7 +9,7 @@ import { WorkSelect } from './work-select';
 import { PersonColorEditor } from './person-color-editor';
 import { colorStyle, colorLabel } from '@/lib/record-colors';
 import { useState } from 'react';
-import { Plus, ArrowLeft, FileText } from 'lucide-react';
+import { Plus, ArrowLeft } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Table,
@@ -36,6 +39,7 @@ export function WorkPerson({
   onSource,
   onSearch,
   onRefresh,
+  author,
 }: {
   state: WorkState;
   person: Person;
@@ -48,6 +52,7 @@ export function WorkPerson({
   onSource: (s: number, r: number, hash?: string) => void;
   onSearch: () => void;
   onRefresh: () => Promise<void>;
+  author: string;
 }) {
   const [tab, setTab] = useState('datos');
   const [documentDirty, setDocumentDirty] = useState(false);
@@ -70,6 +75,7 @@ export function WorkPerson({
   const payments = state.payments.filter(
     (p) => accountIds.has(p.account_id ?? '') || sourceIds.has(p.record_id),
   );
+  const summary = confirmedSummary(accounts, state);
   return (
     <>
       <button data-navigation className="secondary-button" onClick={onBack}>
@@ -159,6 +165,23 @@ export function WorkPerson({
           )}
         </div>
       </section>
+      <div className="report-metrics person-summary">
+        <div>
+          <span>Lotes</span>
+          <strong>{lots.length}</strong>
+        </div>
+        <div>
+          <span>Pagado confirmado</span>
+          <strong>{soles(summary.paid)}</strong>
+        </div>
+        <div>
+          <span>Saldo confirmado</span>
+          <strong>
+            {summary.confirmed ? soles(summary.balance) : 'Por confirmar'}
+          </strong>
+          <small>{summary.unknown} cuenta(s) sin confirmar</small>
+        </div>
+      </div>
       {notice && <output className="notice">{notice}</output>}
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList data-navigation className="person-tabs">
@@ -166,6 +189,7 @@ export function WorkPerson({
           <TabsTrigger value="cuentas">Lotes y deudas</TabsTrigger>
           <TabsTrigger value="pagos">Pagos</TabsTrigger>
           <TabsTrigger value="documentos">Documentos</TabsTrigger>
+          <TabsTrigger value="reporte">Estado de cuenta</TabsTrigger>
           <TabsTrigger value="gestiones">Observaciones</TabsTrigger>
           {admin && (
             <TabsTrigger value="historial">Historial de cambios</TabsTrigger>
@@ -269,7 +293,10 @@ export function WorkPerson({
                               : soles(a.agreed)}
                           </TableCell>
                           <TableCell>
-                            {soles(totals.paid)}
+                            {soles(
+                              totals.newPaid +
+                                (a.opening_confirmed ? a.opening : 0),
+                            )}
                             <small className="record-kind">
                               Histórico:{' '}
                               {a.opening_confirmed
@@ -441,35 +468,24 @@ export function WorkPerson({
             {!payments.length && <p>No hay pagos nuevos registrados.</p>}
           </section>
         </TabsContent>
+        <TabsContent value="reporte">
+          <ReportPanel
+            state={state}
+            author={author}
+            personId={person.id}
+            admin={admin}
+          />
+        </TabsContent>
         <TabsContent value="documentos">
           <section className="panel secure-content">
             <h2>Documentos de la persona</h2>
             {error && <p role="alert">{error}</p>}
             {notice && <output>{notice}</output>}
-            {state.documents
-              .filter((d) => sourceIds.has(d.record_id))
-              .map((d) => (
-                <a
-                  download
-                  className="document-row"
-                  key={d.id}
-                  href={`/api/secure/document?id=${d.id}`}
-                >
-                  <FileText size={18} />
-                  <span>
-                    {d.name}
-                    <small>
-                      {d.category} · {d.author}
-                    </small>
-                  </span>
-                </a>
-              ))}
-            {!state.documents.some((d) => sourceIds.has(d.record_id)) && (
-              <p>
-                No hay archivos adjuntos. Las rutas del Excel no son archivos
-                cargados.
-              </p>
-            )}
+            <DocumentLibrary
+              documents={state.documents.filter((d) =>
+                sourceIds.has(d.record_id),
+              )}
+            />
             {canEdit && (
               <form
                 onChange={() => setDocumentDirty(true)}

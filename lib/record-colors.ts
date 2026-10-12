@@ -26,8 +26,9 @@ export const colorStyle = (color?: string) => {
   const c = recordColors.find((c) => c.value === color);
   return c?.value
     ? {
-        background: c.hex || undefined,
-        color: c.value === 'text-white' ? undefined : c.fg,
+        boxShadow: `inset 4px 0 0 ${c.hex || (c.value === 'text-white' ? '#64748b' : c.fg)}`,
+        background: '#ffffff',
+        color: '#20343e',
       }
     : undefined;
 };
