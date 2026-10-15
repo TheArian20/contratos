@@ -1,4 +1,6 @@
 ﻿'use client';
+import { useRecentVisits } from '@/hooks/use-recent-visits';
+import { personGaps } from '@/lib/work-ease';
 import { useEffect, useMemo, useState } from 'react';
 import {
   CalendarDays,
@@ -58,6 +60,8 @@ const empty: WorkState = {
   entries: [],
 };
 export function DailyWorkspace({
+  userId,
+  onAdmin,
   data,
   role,
   onSource,
@@ -65,6 +69,8 @@ export function DailyWorkspace({
   author,
   initialPersonId = '',
 }: {
+  userId: string;
+  onAdmin: (destination: string) => void;
   author: string;
   initialPersonId?: string;
   data: Dataset | null;
@@ -72,6 +78,7 @@ export function DailyWorkspace({
   onBrowse: (query: string) => void;
   onSource: (sheet: number, row: number, hash?: string) => void;
 }) {
+  const recent = useRecentVisits(userId);
   const [projectFilter, setProjectFilter] = useState(''),
     [colorFilter, setColorFilter] = useState('all'),
     [statusFilter, setStatusFilter] = useState(''),
@@ -160,6 +167,44 @@ export function DailyWorkspace({
   const linked = new Set(state.sources.map((s) => s.record_id)),
     pending = candidates.filter((c) => !linked.has(c.id));
   const person = state.people.find((p) => p.id === personId);
+  const remember = recent.remember;
+  useEffect(() => {
+    if (person && tab === 'Personas')
+      remember({ kind: 'person', id: person.id });
+  }, [person?.id, tab, remember]);
+  const recentRows = recent.visits.flatMap((visit) => {
+    if (visit.kind === 'person') {
+      const p = state.people.find((p) => p.id === visit.id);
+      if (!p) return [];
+      return [
+        {
+          key: 'person:' + p.id,
+          name: p.name,
+          detail: [
+            p.document || 'DNI pendiente',
+            ...state.lots
+              .filter((l) => l.person_id === p.id)
+              .map((l) => `${l.project} · ${l.name}`),
+          ].join(' · '),
+          open: () => openPerson(p.id),
+        },
+      ];
+    }
+    const c = candidates.find((c) => c.id === visit.id);
+    return c
+      ? [
+          {
+            key: 'source:' + c.id,
+            name: c.name,
+            detail: `${c.document || 'DNI pendiente'} · ${c.project} · ${c.lot || 'Lote por confirmar'}`,
+            open: () => onSource(c.sheet, c.row),
+          },
+        ]
+      : [];
+  });
+  const incomplete = state.people
+    .map((p) => ({ person: p, gaps: personGaps(p, state) }))
+    .filter((p) => p.gaps.length);
   const balances = state.accounts.map((a) => ({
     account: a,
     ...accountTotals(a, state.payments),
@@ -298,6 +343,47 @@ export function DailyWorkspace({
       {notice && <output className="notice">{notice}</output>}
       {(tab === 'Hoy' || tab === 'Buscar') && (
         <>
+          {tab === 'Hoy' && (
+            <section className="panel role-home">
+              <p className="eyebrow">{role.toLocaleUpperCase('es-PE')}</p>
+              <h2>
+                {admin
+                  ? 'Organiza y supervisa el trabajo'
+                  : canEdit
+                    ? 'Empieza tu jornada'
+                    : 'Consulta personas y documentos'}
+              </h2>
+              <p>
+                {admin
+                  ? 'Revisa los datos pendientes, las cuentas del equipo y los respaldos.'
+                  : canEdit
+                    ? 'Busca una persona para registrar pagos, adjuntar documentos o dejar observaciones. Las gestiones que ves son del equipo.'
+                    : 'Busca por nombre, DNI o lote. Dentro de la ficha puedes consultar los documentos y el estado de sus cuentas.'}
+              </p>
+              {admin && (
+                <div className="work-actions" data-navigation>
+                  <button
+                    className="secondary-button"
+                    onClick={() => onAdmin('Equipo')}
+                  >
+                    Administrar equipo
+                  </button>
+                  <button
+                    className="secondary-button"
+                    onClick={() => onAdmin('Respaldos')}
+                  >
+                    Crear respaldo
+                  </button>
+                  <button
+                    className="secondary-button"
+                    onClick={() => onAdmin('Actualizar base')}
+                  >
+                    Actualizar Excel
+                  </button>
+                </div>
+              )}
+            </section>
+          )}
           <section className="panel easy-start">
             <h2>Busca a la persona</h2>
             <p>
@@ -306,6 +392,14 @@ export function DailyWorkspace({
               escribir desde una letra; en los lotes no necesitas copiar puntos
               ni guiones.
             </p>
+            <details className="context-help">
+              <summary>Ejemplos de búsqueda</summary>
+              <p>
+                Nombre: «Elvis». Lote: «B24AA», «B.24AA» o «B-24AA». Comprueba
+                el DNI, el proyecto y el lote antes de abrir una ficha si hay
+                nombres parecidos.
+              </p>
+            </details>
             <ColorLegend />
             <form
               className="easy-search"
@@ -376,19 +470,21 @@ export function DailyWorkspace({
                   <span>Elige la persona, escribe el importe y confirma.</span>
                 </button>
               )}
-              <button
-                onClick={() => {
-                  setTab('Pendientes de revisar');
-                  setQuery('');
-                  setPage(0);
-                }}
-              >
-                <ClipboardCheck size={27} />
-                <strong>Pendientes de revisar</strong>
-                <span>
-                  Revisa los registros que todavía no tienen ficha de trabajo.
-                </span>
-              </button>
+              {canEdit && (
+                <button
+                  onClick={() => {
+                    setTab('Pendientes de revisar');
+                    setQuery('');
+                    setPage(0);
+                  }}
+                >
+                  <ClipboardCheck size={27} />
+                  <strong>Pendientes de revisar</strong>
+                  <span>
+                    Revisa los registros que todavía no tienen ficha de trabajo.
+                  </span>
+                </button>
+              )}
             </div>
           </section>
           {tab === 'Buscar' && (
@@ -403,8 +499,79 @@ export function DailyWorkspace({
           )}
           {tab === 'Hoy' && (
             <>
+              <section className="panel secure-content">
+                <div className="section-heading">
+                  <h2>Fichas recientes</h2>
+                  {recentRows.length > 0 && (
+                    <button className="secondary-button" onClick={recent.clear}>
+                      Limpiar recientes
+                    </button>
+                  )}
+                </div>
+                <p>Solo tus visitas en esta pestaña del navegador.</p>
+                {!recentRows.length && (
+                  <p>
+                    Al abrir una ficha, aparecerá aquí para encontrarla más
+                    rápido.
+                  </p>
+                )}
+                <div className="recent-grid">
+                  {recentRows.map((r) => (
+                    <button
+                      className="recent-card"
+                      key={r.key}
+                      onClick={r.open}
+                    >
+                      <strong>{r.name}</strong>
+                      <span>{r.detail}</span>
+                      <span>Abrir ficha →</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+              {canEdit && incomplete.length > 0 && (
+                <section className="panel secure-content">
+                  <h2>Completar información · {incomplete.length} fichas</h2>
+                  <p>
+                    Datos pendientes de las fichas de trabajo. No son deudas ni
+                    errores confirmados.
+                  </p>
+                  {incomplete.slice(0, 5).map(({ person: p, gaps }) => (
+                    <div className="agenda-work-row" key={p.id}>
+                      <div>
+                        <strong>{p.name}</strong>
+                        <p>
+                          DNI: {p.document || 'Por confirmar'} · {gaps[0].label}
+                          {gaps.length > 1
+                            ? ` · ${gaps.length - 1} avisos más`
+                            : ''}
+                        </p>
+                      </div>
+                      <button
+                        className="secondary-button"
+                        onClick={() => openPerson(p.id)}
+                      >
+                        Revisar ficha
+                      </button>
+                    </div>
+                  ))}
+                  {incomplete.length > 5 && (
+                    <button
+                      className="secondary-button"
+                      onClick={() => {
+                        setTab('Personas');
+                        setPersonId('');
+                        setQuery('');
+                        setPage(0);
+                      }}
+                    >
+                      Ver todas las personas
+                    </button>
+                  )}
+                </section>
+              )}
               <h2 className="easy-section-title">
-                Lo que necesitas revisar hoy
+                {canEdit ? 'Agenda del equipo' : 'Resumen de consulta'}
               </h2>
               <div className="secure-summary">
                 <div>
@@ -483,7 +650,7 @@ export function DailyWorkspace({
                   <strong>{state.tasks.filter((t) => !t.done).length}</strong>
                 </div>
               </div>
-              {!state.people.length && (
+              {canEdit && !state.people.length && (
                 <section className="panel onboarding">
                   <h2>Empieza buscando una persona</h2>
                   <p>

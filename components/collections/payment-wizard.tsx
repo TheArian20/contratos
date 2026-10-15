@@ -1,4 +1,5 @@
 ﻿'use client';
+import { matchesPerson } from '@/lib/person-search';
 import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
 import { WorkSelect } from './work-select';
 import { useState } from 'react';
@@ -36,6 +37,7 @@ export function PaymentWizard({
     [operation] = useState(() => crypto.randomUUID()),
     [done, setDone] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [personQuery, setPersonQuery] = useState('');
   const guard = useUnsavedChanges(dirty && !done, busy);
   const warnings = candidates
     .filter((c) =>
@@ -98,6 +100,15 @@ export function PaymentWizard({
             setStep(2);
           }}
         >
+          <label>
+            Buscar persona para el pago
+            <input
+              type="search"
+              value={personQuery}
+              onChange={(e) => setPersonQuery(e.target.value)}
+              placeholder="Nombre, DNI, proyecto o lote; por ejemplo B24AA"
+            />
+          </label>
           <label htmlFor="payment-wizard-1">
             Persona
             <WorkSelect
@@ -105,31 +116,42 @@ export function PaymentWizard({
               value={personId}
               onChange={(e) => {
                 setPersonId(e.target.value);
+                setDetails({});
                 setLotId('');
                 setAccountId('');
               }}
               required
             >
               <option value="">Selecciona una persona confirmada</option>
-              {state.people.map((p) => (
-                <option value={p.id} key={p.id}>
-                  {p.name} · {p.document}
-                </option>
-              ))}
+              {state.people
+                .filter(
+                  (p) =>
+                    p.id === personId ||
+                    matchesPerson(personQuery, p, state.lots),
+                )
+                .map((p) => (
+                  <option value={p.id} key={p.id}>
+                    {p.name} · {p.document}
+                  </option>
+                ))}
             </WorkSelect>
           </label>
           <label htmlFor="payment-wizard-2">
             Lote
             <WorkSelect
               id="payment-wizard-2"
+              disabled={!personId}
               value={lotId}
               onChange={(e) => {
                 setLotId(e.target.value);
+                setDetails({});
                 setAccountId('');
               }}
               required
             >
-              <option value="">Selecciona un lote</option>
+              <option value="">
+                {!personId ? 'Primero elige la persona' : 'Selecciona su lote'}
+              </option>
               {state.lots
                 .filter((l) => l.person_id === personId)
                 .map((l) => (
@@ -143,11 +165,19 @@ export function PaymentWizard({
             Concepto
             <WorkSelect
               id="payment-wizard-3"
+              disabled={!lotId}
               value={accountId}
-              onChange={(e) => setAccountId(e.target.value)}
+              onChange={(e) => {
+                setAccountId(e.target.value);
+                setDetails({});
+              }}
               required
             >
-              <option value="">Selecciona un concepto</option>
+              <option value="">
+                {!lotId
+                  ? 'Primero elige el lote'
+                  : 'Selecciona el concepto que pagará'}
+              </option>
               {state.accounts
                 .filter((a) => a.lot_id === lotId)
                 .map((a) => (
@@ -169,6 +199,14 @@ export function PaymentWizard({
       {step === 2 && account && (
         <form
           className="secure-form"
+          onChange={(e) =>
+            setDetails(
+              Object.fromEntries(new FormData(e.currentTarget)) as Record<
+                string,
+                string
+              >,
+            )
+          }
           onSubmit={(e) => {
             e.preventDefault();
             setError('');
@@ -202,6 +240,7 @@ export function PaymentWizard({
           <p>
             <strong>{person?.name}</strong>
             <br />
+            DNI: {person?.document || 'Por confirmar'} · {lot?.project} ·{' '}
             {lot?.name} · {account.concept}
           </p>
           <p>
@@ -218,6 +257,12 @@ export function PaymentWizard({
                 name="installmentId"
                 required
                 defaultValue={details.installmentId ?? ''}
+                onChange={(e) =>
+                  setDetails((previous) => ({
+                    ...previous,
+                    installmentId: e.target.value,
+                  }))
+                }
               >
                 <option value="">Selecciona una cuota</option>
                 {plans.map((i) => (
@@ -236,7 +281,7 @@ export function PaymentWizard({
               inputMode="decimal"
               defaultValue={details.amount ?? ''}
               required
-              placeholder="0.00"
+              placeholder="Ejemplo: 150.50"
             />
           </label>
           <label>
@@ -253,6 +298,7 @@ export function PaymentWizard({
             Número de recibo o referencia
             <input
               name="reference"
+              placeholder="Ejemplo: REC-00125 o número de operación"
               defaultValue={details.reference ?? ''}
               required
               maxLength={150}

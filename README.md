@@ -16,6 +16,12 @@ Sistema en español para expedientes, contratos extrajudiciales, documentos y co
 
 ## Trabajo diario y fichas confirmadas
 
+El inicio adapta sus accesos a Administración, Gestor y Consulta. Las fichas recientes guardan únicamente identificadores en `sessionStorage`, separados por cuenta y con opción de limpiar. Las tarjetas muestran los datos actuales después de autenticar al usuario.
+
+Las fichas muestran avisos de identificación, teléfono, contrato adjunto e importes pendientes, con accesos para completarlos. Esos avisos no clasifican una deuda ni inventan un lote. El registro de pagos permite buscar por persona, DNI, proyecto o lote, conserva el borrador al retroceder y lo limpia al cambiar la cuenta destinataria.
+
+Administración y Gestor pueden destacar observaciones guardadas. El texto y su autor se conservan; la marca se guarda aparte. Consulta puede leer las destacadas. La cuenta que cambia la marca queda en el historial exclusivo de Administración, tanto en fichas vinculadas como en expedientes originales.
+
 La entrada principal es Trabajo diario: Hoy, Personas, Registrar pago y Pendientes de revisar. Archivo original conserva la organización por hojas y todas las celdas de origen.
 
 - Administración confirma manualmente los registros de una persona; la identificación exacta sugiere coincidencias pero nunca las une sin confirmación. Identificaciones no vacías únicas y cada origen solo puede pertenecer a una ficha. Las correcciones mantienen un historial.

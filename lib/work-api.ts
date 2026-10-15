@@ -72,7 +72,7 @@ export async function workRoute(
         'SELECT id,record_id,name,category,author,created FROM documents',
       ).all();
       const notes = await DB.prepare(
-        'SELECT id,record_id,kind,body,author,created FROM entries',
+        "SELECT id,record_id,kind,body,author,created,EXISTS(SELECT 1 FROM settings WHERE key='entry-pin:'||entries.id AND value='1') pinned FROM entries ORDER BY pinned DESC,created DESC",
       ).all();
       const colors = await DB.prepare(
         "SELECT key,value FROM settings WHERE key LIKE 'person-color:%'",

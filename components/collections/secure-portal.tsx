@@ -34,6 +34,8 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
 } from '@/components/ui/alert-dialog';
+import { useRecentVisits } from '@/hooks/use-recent-visits';
+import { ObservationCard } from './observation-card';
 import { DailyWorkspace } from './daily-workspace';
 import { Brand, Choice } from './shared';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -73,8 +75,15 @@ type User = {
   mustChange: boolean;
 };
 type Extras = {
+  pinHistory?: {
+    entryId: string;
+    pinned: boolean;
+    username: string;
+    created: string;
+  }[];
   documents: { id: string; name: string; category: string; author: string }[];
   entries: {
+    pinned?: number;
     id: string;
     kind: string;
     body: string;
@@ -456,6 +465,8 @@ export function SecurePortal() {
           )}
           {view === 'Trabajo diario' ? (
             <DailyWorkspace
+              userId={user.id}
+              onAdmin={(destination) => setView(destination)}
               author={user.name}
               key={focusPerson}
               initialPersonId={focusPerson}
@@ -1363,12 +1374,16 @@ function RecordPanel({
   const [dirty, setDirty] = useState(false);
   const [editing, setEditing] = useState(false),
     [notice, setNotice] = useState('');
+  const { remember } = useRecentVisits(user.id);
   const id = recordKey(data, record),
     [extras, setExtras] = useState<Extras>({ documents: [], entries: [] }),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
     [category, setCategory] = useState('Contrato'),
     [kind, setKind] = useState('Gestión');
+  useEffect(() => {
+    remember({ kind: 'source', id });
+  }, [id, remember]);
   const guard = useUnsavedChanges(dirty, busy, () => setDirty(false));
   const load = async () => {
     try {
@@ -1453,6 +1468,40 @@ function RecordPanel({
           </SheetDescription>
         </SheetHeader>
         <div className="source-sheet-body">
+          {extras.entries
+            .filter((entry) => entry.pinned)
+            .map((entry) => (
+              <ObservationCard
+                key={entry.id}
+                entry={entry}
+                canEdit={user.role !== 'Consulta'}
+                onRefresh={load}
+              />
+            ))}
+          <h3>¿Qué deseas hacer?</h3>
+          {record.kind === 'Expediente' &&
+            (!record.document || !record.contract) && (
+              <section className="data-gaps">
+                <strong>Datos pendientes de completar</strong>
+                <p>
+                  {[
+                    !record.document && 'DNI / identificación',
+                    !record.contract && 'Número de contrato',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+                {editable && user.role !== 'Consulta' && (
+                  <button
+                    className="secondary-button"
+                    onClick={() => setEditing(true)}
+                  >
+                    Completar datos
+                  </button>
+                )}
+              </section>
+            )}
+
           {error && <p role="alert">{error}</p>}
           {notice && <output className="edit-success">{notice}</output>}
           {editable &&
@@ -1651,6 +1700,27 @@ function RecordPanel({
               )}
             </TabsContent>
             <TabsContent value="gestion">
+              {user.role === 'Administrador' && !!extras.pinHistory?.length && (
+                <details className="source-group">
+                  <summary>
+                    Historial de observaciones destacadas · solo Administración
+                  </summary>
+                  {extras.pinHistory.map((change, index) => (
+                    <p key={index}>
+                      @{change.username} ·{' '}
+                      {change.pinned ? 'Destacó' : 'Quitó el destacado de'} la
+                      observación ·{' '}
+                      {new Date(change.created).toLocaleString('es-PE')}
+                      <br />
+                      <small>
+                        {extras.entries.find(
+                          (entry) => entry.id === change.entryId,
+                        )?.body || change.entryId}
+                      </small>
+                    </p>
+                  ))}
+                </details>
+              )}
               <h3>Observaciones del Excel y de la ficha</h3>
               {record.observations.map((f) => (
                 <p className="observation-text" key={f.coordinate}>
@@ -1662,14 +1732,12 @@ function RecordPanel({
                 el Excel original.
               </p>
               {extras.entries.map((entry) => (
-                <article className="source-group" key={entry.id}>
-                  <strong>{entry.kind}</strong>
-                  <p className="source-note">{entry.body}</p>
-                  <small>
-                    {entry.author} ·{' '}
-                    {new Date(entry.created).toLocaleString('es-PE')}
-                  </small>
-                </article>
+                <ObservationCard
+                  key={entry.id}
+                  entry={entry}
+                  canEdit={user.role !== 'Consulta'}
+                  onRefresh={load}
+                />
               ))}
               {user.role !== 'Consulta' && (
                 <form

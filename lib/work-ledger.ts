@@ -92,6 +92,7 @@ export type WorkState = {
     created: string;
   }[];
   entries: {
+    pinned?: number;
     id: string;
     record_id: string;
     kind: string;

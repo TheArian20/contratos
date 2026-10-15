@@ -1,4 +1,6 @@
 ﻿'use client';
+import { personGaps } from '@/lib/work-ease';
+import { ObservationCard } from './observation-card';
 import { DocumentLibrary } from './document-library';
 import { ReportPanel } from './report-panel';
 import { confirmedSummary } from '@/lib/reports';
@@ -76,6 +78,8 @@ export function WorkPerson({
     (p) => accountIds.has(p.account_id ?? '') || sourceIds.has(p.record_id),
   );
   const summary = confirmedSummary(accounts, state);
+  const gaps = personGaps(person, state);
+  const notes = state.entries.filter((e) => sourceIds.has(e.record_id));
   return (
     <>
       <button data-navigation className="secondary-button" onClick={onBack}>
@@ -113,6 +117,7 @@ export function WorkPerson({
             ))}
         </div>
         <div className="work-actions" data-navigation>
+          <h3 className="action-heading">¿Qué deseas hacer?</h3>
           {canEdit && (
             <>
               <button
@@ -165,6 +170,58 @@ export function WorkPerson({
           )}
         </div>
       </section>
+      {notes
+        .filter((e) => e.pinned)
+        .map((entry) => (
+          <ObservationCard
+            key={entry.id}
+            entry={entry}
+            canEdit={canEdit}
+            onRefresh={onRefresh}
+          />
+        ))}
+      {gaps.length > 0 && (
+        <section className="panel data-gaps">
+          <h3>Datos pendientes de completar</h3>
+          <p>
+            Estos avisos indican información que falta; no significan que la
+            persona tenga deuda.
+          </p>
+          <ul>
+            {gaps.map((gap, index) => (
+              <li key={index}>
+                <span>{gap.label}</span>
+                {canEdit && (
+                  <button
+                    className="secondary-button"
+                    data-navigation
+                    onClick={() => {
+                      if (gap.action === 'person')
+                        onModal({ kind: 'person-edit', person });
+                      else if (gap.action === 'lot')
+                        onModal({
+                          kind: 'lot',
+                          person,
+                          lot: lots.find((l) => l.id === gap.lotId),
+                        });
+                      else
+                        setTab(
+                          gap.action === 'documents' ? 'documentos' : 'cuentas',
+                        );
+                    }}
+                  >
+                    {gap.action === 'accounts'
+                      ? 'Ver cuentas'
+                      : gap.action === 'documents'
+                        ? 'Adjuntar contrato'
+                        : 'Completar'}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <div className="report-metrics person-summary">
         <div>
           <span>Lotes</span>
@@ -613,17 +670,14 @@ export function WorkPerson({
                   )}
                 </article>
               ))}
-            {state.entries
-              .filter((e) => sourceIds.has(e.record_id))
-              .map((e) => (
-                <article className="source-group" key={e.id}>
-                  <strong>{e.kind}</strong>
-                  <p className="observation-text">{e.body}</p>
-                  <small>
-                    {e.author} · {e.created.slice(0, 10)}
-                  </small>
-                </article>
-              ))}
+            {notes.map((entry) => (
+              <ObservationCard
+                key={entry.id}
+                entry={entry}
+                canEdit={canEdit}
+                onRefresh={onRefresh}
+              />
+            ))}
           </section>
         </TabsContent>
         {admin && (

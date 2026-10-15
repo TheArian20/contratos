@@ -3206,3 +3206,105 @@ h2 {
   min-height: 38px;
   font: inherit;
 }
+/* Everyday work: clear shortcuts, incomplete data and important notes. */
+.role-home {
+  padding: 24px;
+  margin-bottom: 18px;
+}
+.role-home h2 {
+  margin: 6px 0 12px;
+}
+.context-help {
+  margin: 14px 0;
+}
+.context-help summary {
+  cursor: pointer;
+  color: #126e70;
+  font-weight: 600;
+}
+.action-heading {
+  flex-basis: 100%;
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+}
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.recent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+  gap: 12px;
+}
+.recent-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid #cbdbe2;
+  border-radius: 12px;
+  background: #fff;
+  color: #183747;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.recent-card:hover {
+  background: #f0f8f7;
+  border-color: #16857c;
+}
+.recent-card span {
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.recent-card span:last-child {
+  color: #126e70;
+  font-weight: 600;
+}
+.data-gaps {
+  background: #fffbeb;
+  border: 1px solid #eedca4;
+  padding: 20px;
+  margin: 16px 0;
+  border-radius: 12px;
+}
+.data-gaps ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.data-gaps li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 10px 0;
+  border-bottom: 1px solid #eedca4;
+}
+.data-gaps li:last-child {
+  border-bottom: 0;
+}
+.pinned-note {
+  border-left: 5px solid #ba8614;
+  background: #fffaf0;
+  padding: 18px;
+  border-radius: 10px;
+}
+.pinned-note .observation-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.source-group > .secondary-button {
+  display: block;
+  margin-top: 12px;
+}
+@media (max-width: 600px) {
+  .role-home,
+  .data-gaps {
+    padding: 16px;
+  }
+}

@@ -697,10 +697,27 @@ async function handler(request: Request) {
           'SELECT id,name,category,size,created,author FROM documents WHERE record_id=? ORDER BY created DESC',
         ).bind(id),
         DB.prepare(
-          'SELECT id,kind,body,created,author FROM entries WHERE record_id=? ORDER BY created DESC',
+          "SELECT id,kind,body,created,author,EXISTS(SELECT 1 FROM settings WHERE key='entry-pin:'||entries.id AND value='1') pinned FROM entries WHERE record_id=? ORDER BY pinned DESC,created DESC",
         ).bind(id),
       ]);
-      return json({ documents: docs.results, entries: entries.results });
+      const pinHistory =
+        user.role === 'Administrador'
+          ? (
+              await DB.prepare(
+                "SELECT target,created FROM audit WHERE action='entry_pin_changed' AND json_extract(target,'$.recordId')=? ORDER BY created DESC",
+              )
+                .bind(id)
+                .all<{ target: string; created: string }>()
+            ).results.map((row) => ({
+              ...JSON.parse(row.target),
+              created: row.created,
+            }))
+          : undefined;
+      return json({
+        documents: docs.results,
+        entries: entries.results,
+        pinHistory,
+      });
     }
     if (action === 'payments') {
       if (request.method === 'POST')
@@ -761,6 +778,53 @@ async function handler(request: Request) {
         if (String(e).includes('UNIQUE')) fail(409, 'El recibo ya existe.');
         throw e;
       }
+      return json({ ok: true });
+    }
+    if (action === 'entry-pin' && request.method === 'POST') {
+      editor();
+      const input = await body(request),
+        entryId = text(input.id);
+      if (typeof input.pinned !== 'boolean')
+        fail(400, 'Selecciona si deseas destacar la observación.');
+      const entry = await DB.prepare('SELECT record_id FROM entries WHERE id=?')
+        .bind(entryId)
+        .first<{ record_id: string }>();
+      if (!entry) fail(404, 'Observación no encontrada.');
+      await validRecord(entry.record_id);
+      const value = input.pinned ? '1' : '0',
+        now = new Date().toISOString();
+      const key = 'entry-pin:' + entryId;
+      const statements = [
+        DB.prepare(
+          "INSERT INTO changes (id,person_id,entity,before,after,reason,author,created,author_id,author_username) SELECT ?,person_id,?,json_object('id',?,'destacada',COALESCE((SELECT value FROM settings WHERE key=?),'0')),?,?,?, ?,?,? FROM person_sources WHERE record_id=?",
+        ).bind(
+          crypto.randomUUID(),
+          'Observación destacada',
+          entryId,
+          key,
+          JSON.stringify({ id: entryId, destacada: value }),
+          input.pinned ? 'Destacar observación' : 'Quitar destacado',
+          user.name,
+          now,
+          user.id,
+          user.username,
+          entry.record_id,
+        ),
+        DB.prepare(
+          'INSERT INTO settings (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',
+        ).bind(key, value),
+        log(
+          user.id,
+          'entry_pin_changed',
+          JSON.stringify({
+            recordId: entry.record_id,
+            entryId,
+            pinned: input.pinned,
+            username: user.username,
+          }),
+        ),
+      ];
+      await DB.batch(statements);
       return json({ ok: true });
     }
     if (action === 'entry' && request.method === 'POST') {

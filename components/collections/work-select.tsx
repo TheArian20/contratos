@@ -25,6 +25,7 @@ export function WorkSelect({
   defaultValue,
   onChange,
   required = false,
+  disabled = false,
   id,
 }: {
   children: ReactNode;
@@ -34,6 +35,7 @@ export function WorkSelect({
   defaultValue?: string;
   onChange?: (event: { target: { value: string } }) => void;
   required?: boolean;
+  disabled?: boolean;
 }) {
   const options = Children.toArray(children)
     .filter(isValidElement<{ value?: string; children?: ReactNode }>)
@@ -48,6 +50,7 @@ export function WorkSelect({
       name={name}
       value={selected}
       required={required}
+      disabled={disabled}
       onValueChange={(next) => {
         if (next !== null) {
           setLocal(next);
