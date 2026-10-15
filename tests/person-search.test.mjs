@@ -7,6 +7,31 @@ import {
 } from '../lib/person-search.ts';
 import { colorMeaning } from '../lib/record-colors.ts';
 
+test('partial names work from one letter and ignore accents and repeated spaces', () => {
+  for (const query of [
+    'm',
+    'ma',
+    'mar',
+    'maria',
+    'perez  maria',
+    '  María   Pé  ',
+  ]) {
+    assert.ok(matchesSearch(query, ['María   Pérez']), query);
+  }
+  assert.equal(matchesSearch('z', ['María Pérez']), true);
+  assert.equal(matchesSearch('x', ['María Pérez']), false);
+});
+test('lot punctuation and spacing do not hide matching records', () => {
+  for (const value of ['B.24AA', 'B-24AA', 'B 24 AA', 'B–24AA', 'B. 24AA']) {
+    for (const query of ['B24AA', 'B.24AA', 'B-24AA', 'B 24 AA', '24AA']) {
+      assert.ok(matchesSearch(query, [value]), `${query} / ${value}`);
+    }
+  }
+  assert.equal(matchesSearch('B25AA', ['B.24AA']), false);
+  assert.equal(matchesSearch('B24AA', ['B', '24AA']), false);
+  assert.ok(matchesSearch('maria B24AA', ['María Pérez', 'B.24AA']));
+});
+
 test('search supports accents, reordered words, lots, projects and contracts', () => {
   const person = {
     id: 'one',

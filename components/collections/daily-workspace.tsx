@@ -19,7 +19,6 @@ import {
   organizeSheet,
   availableProjects,
   recordKey,
-  clean,
   type Dataset,
 } from '@/lib/source-data';
 import {
@@ -44,7 +43,7 @@ import { NewPerson } from './new-person';
 import { ColorLegend } from './color-legend';
 import { colorStyle, colorLabel } from '@/lib/record-colors';
 import { PersonSearch } from './person-search';
-import { matchesPerson } from '@/lib/person-search';
+import { matchesPerson, matchesSearch } from '@/lib/person-search';
 import { PaymentWizard } from './payment-wizard';
 const empty: WorkState = {
   people: [],
@@ -221,9 +220,7 @@ export function DailyWorkspace({
         ),
     );
   const filteredPending = pending.filter((c) =>
-    clean(
-      `${c.name} ${c.document} ${c.lot} ${c.project} ${c.contract}`,
-    ).includes(clean(query)),
+    matchesSearch(query, [c.name, c.document, c.lot, c.project, c.contract]),
   );
   if (loading)
     return (
@@ -305,7 +302,9 @@ export function DailyWorkspace({
             <h2>Busca a la persona</h2>
             <p>
               Escribe su nombre, DNI, lote o contrato. La búsqueda incluye todas
-              las hojas del Excel y las fichas creadas en la página.
+              las hojas del Excel y las fichas creadas en la página. Puedes
+              escribir desde una letra; en los lotes no necesitas copiar puntos
+              ni guiones.
             </p>
             <ColorLegend />
             <form
@@ -321,7 +320,10 @@ export function DailyWorkspace({
                   aria-label="Buscar en toda la base"
                   placeholder="Nombre, DNI, contrato, manzana o lote"
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setTab('Buscar');
+                  }}
                 />
               </label>
               <button className="primary-button">Buscar</button>

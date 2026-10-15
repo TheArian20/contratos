@@ -2,11 +2,16 @@ import { clean } from './source-data.ts';
 import type { Person, Lot } from './work-ledger';
 
 export function matchesSearch(query: string, values: unknown[]) {
-  const text = clean(values.filter((v) => v != null).join(' '));
+  // Punctuation and spacing vary between handwritten/Excel lot references.
+  // Keep each field separate: never form a fictitious lot from adjacent fields.
+  const compact = (value: unknown) =>
+    clean(String(value ?? '')).replace(/[^\p{L}\p{N}]/gu, '');
+  const fields = values.filter((v) => v != null).map(compact);
   return clean(query)
     .split(/\s+/)
+    .map(compact)
     .filter(Boolean)
-    .every((word) => text.includes(word));
+    .every((word) => fields.some((field) => field.includes(word)));
 }
 export function matchesPerson(query: string, person: Person, lots: Lot[]) {
   return matchesSearch(query, [

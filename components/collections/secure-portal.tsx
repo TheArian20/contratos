@@ -1,4 +1,5 @@
 'use client';
+import { matchesSearch } from '@/lib/person-search';
 import { BackupPanel } from './backup-panel';
 import { recordColors } from '@/lib/record-colors';
 import { DocumentLibrary } from './document-library';
@@ -227,18 +228,12 @@ export function SecurePortal() {
             record.kind === 'Expediente'
           )
             return false;
-          const term = clean(query);
-          return (
-            !term ||
-            Object.values(recordValues(record)).some((v) =>
-              clean(String(v)).includes(term),
-            ) ||
-            clean(record.lot).includes(term) ||
-            record.observations.some((f) =>
-              clean(cellText(f.cell)).includes(term),
-            ) ||
-            record.fields.some((f) => clean(cellText(f.cell)).includes(term))
-          );
+          return matchesSearch(query, [
+            ...Object.values(recordValues(record)),
+            record.lot,
+            ...record.observations.map((f) => cellText(f.cell)),
+            ...record.fields.map((f) => cellText(f.cell)),
+          ]);
         })
         .sort((a, b) =>
           sort === 'origin'

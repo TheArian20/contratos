@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { workCall, workError } from './work-shared';
-import { clean } from '@/lib/source-data';
+import { matchesSearch } from '@/lib/person-search';
 export function ProjectPeople({
   project,
   query,
@@ -51,7 +51,7 @@ export function ProjectPeople({
         (!project || r.project === project) &&
         (color === 'all' || r.color === color) &&
         (!unidentified || !r.document) &&
-        clean(`${r.name} ${r.document} ${r.project}`).includes(clean(query)),
+        matchesSearch(query, [r.name, r.document, r.project]),
     )
     .sort(
       (a, b) =>
