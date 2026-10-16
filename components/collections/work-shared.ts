@@ -31,6 +31,14 @@ export type WorkSave = (
   path: string,
   data: unknown,
 ) => Promise<{ id?: string }>;
+export class WorkRequestError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message);
+  }
+}
 export async function workCall<T = unknown>(path: string, data?: unknown) {
   const response = await fetch(`/api/secure/${path}`, {
     method: data === undefined ? 'GET' : 'POST',
@@ -41,7 +49,10 @@ export async function workCall<T = unknown>(path: string, data?: unknown) {
   });
   const result = (await response.json()) as T & { error?: string };
   if (!response.ok)
-    throw new Error(result.error || 'No se pudo completar la operación.');
+    throw new WorkRequestError(
+      result.error || 'No se pudo completar la operación.',
+      response.status,
+    );
   return result;
 }
 export const workError = (e: unknown) =>

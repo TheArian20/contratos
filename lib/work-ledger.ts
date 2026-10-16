@@ -52,6 +52,7 @@ export type Installment = {
   cents: number;
 };
 export type WorkTask = {
+  account_id?: string | null;
   id: string;
   person_id: string;
   kind: string;

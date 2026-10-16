@@ -16,6 +16,7 @@ import { clean } from '@/lib/source-data';
 import { soles, type WorkState } from '@/lib/work-ledger';
 import {
   workError,
+  WorkRequestError,
   type WorkModal,
   type Candidate,
   type WorkSave,
@@ -29,6 +30,7 @@ export function WorkForm({
   onSource,
   onSave,
   onPerson,
+  onReload,
 }: {
   modal: WorkModal;
   state: WorkState;
@@ -38,8 +40,11 @@ export function WorkForm({
   onSource: (s: number, r: number) => void;
   onSave: WorkSave;
   onPerson: (id: string) => void;
+  onReload: () => Promise<void>;
 }) {
   const [error, setError] = useState('');
+  const [conflict, setConflict] = useState(false);
+  const [reloading, setReloading] = useState(false);
   const [dirty, setDirty] = useState(false);
   const guard = useUnsavedChanges(dirty, busy);
   const [pending, setPending] = useState<{
@@ -110,6 +115,35 @@ export function WorkForm({
             {error}
           </p>
         )}
+        {conflict && (
+          <section className="data-gaps" role="alert">
+            <h3>Hay una versión más reciente o un registro coincidente</h3>
+            <p>
+              El servidor no guardó este intento. Tu borrador sigue aquí para
+              que puedas revisarlo. Al cargar la versión actual se descartará
+              este borrador.
+            </p>
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={busy || reloading}
+              onClick={async () => {
+                setReloading(true);
+                try {
+                  await onReload();
+                  guard.markSaved();
+                  onClose();
+                } catch (e) {
+                  setError(workError(e));
+                } finally {
+                  setReloading(false);
+                }
+              }}
+            >
+              Descartar borrador y cargar versión actual
+            </button>
+          </section>
+        )}
         {modal.kind === 'confirm' ? (
           <ConfirmPerson
             candidate={modal.candidate!}
@@ -152,6 +186,9 @@ export function WorkForm({
                         onClose();
                       } catch (e) {
                         setError(workError(e));
+                        setConflict(
+                          e instanceof WorkRequestError && e.status === 409,
+                        );
                       }
                     }}
                   >
@@ -293,6 +330,9 @@ export function WorkForm({
                   onClose();
                 } catch (err) {
                   setError(workError(err));
+                  setConflict(
+                    err instanceof WorkRequestError && err.status === 409,
+                  );
                 }
               }}
             >

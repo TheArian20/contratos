@@ -1,4 +1,8 @@
-﻿'use client';
+'use client';
+import { CommitmentsPanel } from './commitments-panel';
+import { DuplicatePanel } from './duplicate-panel';
+import { ClosingPanel } from './closing-panel';
+import type { DuplicateRecord } from '@/lib/daily-operations';
 import { useRecentVisits } from '@/hooks/use-recent-visits';
 import { personGaps } from '@/lib/work-ease';
 import { useEffect, useMemo, useState } from 'react';
@@ -166,6 +170,42 @@ export function DailyWorkspace({
   );
   const linked = new Set(state.sources.map((s) => s.record_id)),
     pending = candidates.filter((c) => !linked.has(c.id));
+  const duplicateRecords: DuplicateRecord[] = useMemo(
+    () => [
+      ...candidates.map((c) => ({
+        ...c,
+        personId: state.sources.find((s) => s.record_id === c.id)?.person_id,
+      })),
+      ...state.people.flatMap((p) => {
+        const lots = state.lots.filter((l) => l.person_id === p.id);
+        return lots.length
+          ? lots.map((l) => ({
+              id: 'lot:' + l.id,
+              personId: p.id,
+              name: p.name,
+              document: p.document,
+              project: l.project,
+              lot: l.name,
+            }))
+          : [
+              {
+                id: 'person:' + p.id,
+                personId: p.id,
+                name: p.name,
+                document: p.document,
+                project: p.project || '',
+                lot: '',
+              },
+            ];
+      }),
+    ],
+    [candidates, state.people, state.lots, state.sources],
+  );
+  const openDuplicate = (record: DuplicateRecord) => {
+    if (record.personId) openPerson(record.personId);
+    else if (record.sheet !== undefined && record.row !== undefined)
+      onSource(record.sheet, record.row);
+  };
   const person = state.people.find((p) => p.id === personId);
   const remember = recent.remember;
   useEffect(() => {
@@ -301,6 +341,13 @@ export function DailyWorkspace({
           { name: 'Hoy', label: 'Inicio', icon: CalendarDays },
           { name: 'Buscar', label: 'Buscar persona', icon: Search },
           { name: 'Personas', label: 'Personas y lotes', icon: UserRound },
+          {
+            name: 'Compromisos',
+            label: 'Compromisos de pago',
+            icon: CalendarDays,
+          },
+          { name: 'Duplicados', label: 'Posibles duplicados', icon: Search },
+          { name: 'Cierre diario', label: 'Cierre diario', icon: Wallet },
           { name: 'Reportes', label: 'Reportes', icon: ClipboardCheck },
           ...(canEdit
             ? [
@@ -743,6 +790,24 @@ export function DailyWorkspace({
           )}
         </>
       )}
+      {tab === 'Compromisos' && (
+        <CommitmentsPanel
+          state={state}
+          canEdit={canEdit}
+          onSave={save}
+          onPerson={openPerson}
+        />
+      )}
+      {tab === 'Duplicados' && (
+        <DuplicatePanel records={duplicateRecords} onOpen={openDuplicate} />
+      )}
+      {tab === 'Cierre diario' && (
+        <ClosingPanel
+          state={state}
+          sources={duplicateRecords}
+          author={author}
+        />
+      )}
       {tab === 'Reportes' && (
         <ReportPanel state={state} author={author} admin={admin} />
       )}
@@ -984,6 +1049,7 @@ export function DailyWorkspace({
             setPage(0);
           }}
           onRefresh={refresh}
+          onSave={save}
         />
       )}
       {tab === 'Registrar pago' &&
@@ -1112,7 +1178,11 @@ export function DailyWorkspace({
       )}
       {creating && (
         <NewPerson
-          existing={[...state.people, ...candidates]}
+          existing={duplicateRecords}
+          onDuplicate={(record) => {
+            setCreating(false);
+            openDuplicate(record);
+          }}
           projects={availableProjects(data)}
           onClose={() => setCreating(false)}
           onSave={save}
@@ -1122,6 +1192,7 @@ export function DailyWorkspace({
       )}
       {modal && (
         <WorkForm
+          onReload={refresh}
           modal={modal}
           state={state}
           candidates={pending}

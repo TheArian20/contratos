@@ -1,5 +1,9 @@
 'use client';
-import { useState } from 'react';
+import {
+  normalizedReference,
+  type DuplicateRecord,
+} from '@/lib/daily-operations';
+import { useEffect, useState } from 'react';
 import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
 import { sameDocument } from '@/lib/person-search';
 import {
@@ -28,15 +32,18 @@ export function NewPerson({
   busy,
   projects,
   existing = [],
+  onDuplicate,
 }: {
   onClose: () => void;
   onSave: WorkSave;
   onDone: (id: string) => void;
   busy: boolean;
   projects: string[];
-  existing?: { name: string; document: string }[];
+  existing?: DuplicateRecord[];
+  onDuplicate: (record: DuplicateRecord) => void;
 }) {
   const [requestId] = useState(() => crypto.randomUUID());
+  const [lotReviewed, setLotReviewed] = useState(false);
   const [data, setData] = useState({
     name: '',
     document: '',
@@ -64,6 +71,24 @@ export function NewPerson({
   const duplicates = data.document.trim()
     ? existing.filter((p) => sameDocument(p.document, data.document))
     : [];
+  const lotMatches =
+    data.lot.trim() && data.project
+      ? existing.filter(
+          (p) =>
+            normalizedReference(p.project) ===
+              normalizedReference(data.project) &&
+            normalizedReference(p.lot) === normalizedReference(data.lot),
+        )
+      : [];
+  const matchingRows = [
+    ...new Map(
+      [...duplicates, ...lotMatches].map((r) => [
+        r.personId ? 'person:' + r.personId : r.id,
+        r,
+      ]),
+    ).values(),
+  ];
+  useEffect(() => setLotReviewed(false), [data.project, data.lot]);
   return (
     <Dialog
       open
@@ -107,6 +132,12 @@ export function NewPerson({
               if (data.contract.trim() && !data.lot.trim()) {
                 setError(
                   'Completa la ubicación del lote al que pertenece el contrato.',
+                );
+                return;
+              }
+              if (lotMatches.length && !lotReviewed) {
+                setError(
+                  'Revisa el lote coincidente y marca la comprobación antes de continuar.',
                 );
                 return;
               }
@@ -165,15 +196,45 @@ export function NewPerson({
                   </label>
                 ))}
               </div>
-              {duplicates.length > 0 && (
-                <p className="form-error" role="alert">
-                  Ese DNI ya aparece en:{' '}
-                  {duplicates
-                    .slice(0, 3)
-                    .map((p) => p.name)
-                    .join(' · ')}
-                  . Cancela y búscalo para evitar duplicados.
-                </p>
+              {!!matchingRows.length && (
+                <section className="data-gaps">
+                  <h3>Ya hay registros que coinciden</h3>
+                  <p>
+                    {duplicates.length
+                      ? 'El DNI ya aparece. Abre la ficha existente para evitar crear otra persona.'
+                      : 'El lote ya aparece en este proyecto. Revisa si es un antecedente o si corresponde a otra persona.'}
+                  </p>
+                  {matchingRows.slice(0, 8).map((r) => (
+                    <div className="agenda-work-row" key={r.id}>
+                      <div>
+                        <strong>{r.name}</strong>
+                        <p>
+                          {r.document} · {r.project} · {r.lot}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => {
+                          if (guard.canLeave()) onDuplicate(r);
+                        }}
+                      >
+                        Revisar ficha
+                      </button>
+                    </div>
+                  ))}
+                  {!!lotMatches.length && !duplicates.length && (
+                    <label className="check-row">
+                      <input
+                        type="checkbox"
+                        checked={lotReviewed}
+                        onChange={(e) => setLotReviewed(e.target.checked)}
+                      />
+                      Revisé el lote y corresponde crear una persona distinta.
+                      Explicaré el motivo abajo.
+                    </label>
+                  )}
+                </section>
               )}
               <label>
                 Observación inicial (opcional)

@@ -55,11 +55,17 @@ export function RecordEditor({
   record: SourceRecord;
   project: string;
   admin: boolean;
-  onSave: (values: EditValues, note: string, reason: string) => Promise<void>;
+  onSave: (
+    values: EditValues,
+    note: string,
+    reason: string,
+    expectedVersion: number,
+  ) => Promise<void>;
   onClose: () => void;
   onReload: () => Promise<void>;
 }) {
   const [before] = useState(() => recordValues(record));
+  const [expectedVersion] = useState(record.correction?.version ?? 0);
   const [values, setValues] = useState(before);
   const [note, setNote] = useState(''),
     [reason, setReason] = useState('');
@@ -132,7 +138,7 @@ export function RecordEditor({
             }
             setBusy(true);
             try {
-              await onSave(values, note.trim(), reason.trim());
+              await onSave(values, note.trim(), reason.trim(), expectedVersion);
               guard.markSaved();
               onClose();
             } catch (e) {

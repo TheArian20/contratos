@@ -74,6 +74,16 @@ export async function workRoute(
       const notes = await DB.prepare(
         "SELECT id,record_id,kind,body,author,created,EXISTS(SELECT 1 FROM settings WHERE key='entry-pin:'||entries.id AND value='1') pinned FROM entries ORDER BY pinned DESC,created DESC",
       ).all();
+      const taskAccounts = await DB.prepare(
+        "SELECT key,value FROM settings WHERE key LIKE 'task-account:%'",
+      ).all<{ key: string; value: string }>();
+      const taskAccountMap = Object.fromEntries(
+        taskAccounts.results.map((r) => [r.key.slice(13), r.value]),
+      );
+      rows[6].results = rows[6].results.map((item) => {
+        const t = item as Record<string, unknown>;
+        return { ...t, account_id: taskAccountMap[String(t.id)] || null };
+      });
       const colors = await DB.prepare(
         "SELECT key,value FROM settings WHERE key LIKE 'person-color:%'",
       ).all<{ key: string; value: string }>();
@@ -875,6 +885,87 @@ export async function workRoute(
         ),
       ]);
       return respond({ ok: true });
+    }
+    if (action === 'desk-commitment') {
+      const personId = required(d.personId),
+        description = required(d.description, 3000),
+        reason = required(d.reason, 1500),
+        accountId = optional(d.accountId);
+      await getPerson(personId);
+      const amount = centsInput(d.amount);
+      if (!amount || amount <= 0 || !validDay(d.due))
+        throw new WorkError('Revisa el importe y la fecha acordada.');
+      if (
+        accountId &&
+        !(await DB.prepare(
+          'SELECT a.id FROM accounts a JOIN lots l ON a.lot_id=l.id WHERE a.id=? AND l.person_id=?',
+        )
+          .bind(accountId, personId)
+          .first())
+      )
+        throw new WorkError('La cuenta no pertenece a esa persona.');
+      const payload = {
+        personId,
+        description,
+        due: d.due,
+        amount,
+        accountId,
+        reason,
+      };
+      if (d.id) {
+        const before = await DB.prepare(
+          "SELECT * FROM tasks WHERE id=? AND person_id=? AND kind='Compromiso de pago'",
+        )
+          .bind(d.id, personId)
+          .first();
+        if (!before) throw new WorkError('Compromiso no encontrado.', 404);
+        await mutate([
+          DB.prepare(
+            'UPDATE tasks SET description=?,due=?,amount=?,version=version+1 WHERE id=? AND version=?',
+          ).bind(description, d.due, amount, d.id, d.version),
+          DB.prepare(
+            'INSERT INTO settings (key,value) SELECT ?,? WHERE changes()=1 ON CONFLICT(key) DO UPDATE SET value=excluded.value',
+          ).bind('task-account:' + d.id, accountId),
+          history(
+            personId,
+            'Compromiso modificado',
+            before,
+            payload,
+            reason,
+            true,
+          ),
+        ]);
+        return respond({ id: d.id });
+      }
+      const taskId = required(d.requestId, 50);
+      if (!/^[0-9a-f-]{36}$/i.test(taskId))
+        throw new WorkError('Solicitud de compromiso inválida.');
+      const operation = 'task-create:' + taskId,
+        serialized = JSON.stringify(payload);
+      const prior = await DB.prepare('SELECT value FROM settings WHERE key=?')
+        .bind(operation)
+        .first<{ value: string }>();
+      if (prior) {
+        if (prior.value !== serialized)
+          throw new WorkError(
+            'Esta solicitud ya se usó. Abre un nuevo compromiso.',
+            409,
+          );
+        return respond({ id: taskId });
+      }
+      await mutate([
+        DB.prepare(
+          "INSERT OR IGNORE INTO tasks (id,person_id,kind,description,due,amount,author,created) VALUES (?,?,'Compromiso de pago',?,?,?,?,?)",
+        ).bind(taskId, personId, description, d.due, amount, user.name, now),
+        DB.prepare(
+          'INSERT INTO settings (key,value) SELECT ?,? WHERE changes()=1',
+        ).bind(operation, serialized),
+        DB.prepare(
+          'INSERT INTO settings (key,value) SELECT ?,? WHERE changes()=1',
+        ).bind('task-account:' + taskId, accountId),
+        history(personId, 'Compromiso de pago', null, payload, reason, true),
+      ]);
+      return respond({ id: taskId });
     }
     if (action === 'desk-task') {
       const personId = required(d.personId);

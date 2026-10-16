@@ -3308,3 +3308,46 @@ h2 {
     padding: 16px;
   }
 }
+.contract-status {
+  padding: 18px;
+  margin: 16px 0;
+  background: #f4f8fa;
+  border: 1px solid #d4e1e6;
+  border-radius: 12px;
+}
+.contract-status h3 {
+  margin: 0;
+}
+.status-pill {
+  padding: 7px 12px;
+  border-radius: 20px;
+  background: #e0f0ee;
+  color: #135f59;
+}
+.closing-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 14px 0 24px;
+}
+.closing-table td,
+.closing-table th {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #d4e1e6;
+}
+.closing-table th {
+  background: #f0f6f6;
+}
+.closing-scroll {
+  overflow-x: auto;
+}
+@media print {
+  .closing-scroll {
+    overflow: visible;
+  }
+  .closing-table td,
+  .closing-table th {
+    padding: 5px;
+    font-size: 10px;
+  }
+}

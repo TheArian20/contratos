@@ -1,4 +1,6 @@
 ﻿'use client';
+import { ContractStatus } from './contract-status';
+import { CommitmentsPanel } from './commitments-panel';
 import { personGaps } from '@/lib/work-ease';
 import { ObservationCard } from './observation-card';
 import { DocumentLibrary } from './document-library';
@@ -41,6 +43,7 @@ export function WorkPerson({
   onSource,
   onSearch,
   onRefresh,
+  onSave,
   author,
 }: {
   state: WorkState;
@@ -53,6 +56,7 @@ export function WorkPerson({
   onPay: (id: string) => void;
   onSource: (s: number, r: number, hash?: string) => void;
   onSearch: () => void;
+  onSave: import('./work-shared').WorkSave;
   onRefresh: () => Promise<void>;
   author: string;
 }) {
@@ -118,6 +122,14 @@ export function WorkPerson({
         </div>
         <div className="work-actions" data-navigation>
           <h3 className="action-heading">¿Qué deseas hacer?</h3>
+          {canEdit && (
+            <button
+              className="secondary-button"
+              onClick={() => setTab('compromisos')}
+            >
+              Compromisos de pago
+            </button>
+          )}
           {canEdit && (
             <>
               <button
@@ -247,6 +259,7 @@ export function WorkPerson({
           <TabsTrigger value="pagos">Pagos</TabsTrigger>
           <TabsTrigger value="documentos">Documentos</TabsTrigger>
           <TabsTrigger value="reporte">Estado de cuenta</TabsTrigger>
+          <TabsTrigger value="compromisos">Compromisos de pago</TabsTrigger>
           <TabsTrigger value="gestiones">Observaciones</TabsTrigger>
           {admin && (
             <TabsTrigger value="historial">Historial de cambios</TabsTrigger>
@@ -298,6 +311,7 @@ export function WorkPerson({
           )}
           {lots.map((l) => (
             <section className="panel lot-account-card" key={l.id}>
+              <ContractStatus kind="lot" id={l.id} canEdit={canEdit} />
               <div className="excel-controls">
                 <div>
                   <h3>{l.name}</h3>
@@ -615,6 +629,15 @@ export function WorkPerson({
               </form>
             )}
           </section>
+        </TabsContent>
+        <TabsContent value="compromisos">
+          <CommitmentsPanel
+            state={state}
+            personId={person.id}
+            canEdit={canEdit}
+            onSave={onSave}
+            onPerson={() => setTab('pagos')}
+          />
         </TabsContent>
         <TabsContent value="gestiones">
           <section className="panel secure-content">

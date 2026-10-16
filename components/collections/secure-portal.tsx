@@ -34,6 +34,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
 } from '@/components/ui/alert-dialog';
+import { ContractStatus } from './contract-status';
 import { useRecentVisits } from '@/hooks/use-recent-visits';
 import { ObservationCard } from './observation-card';
 import { DailyWorkspace } from './daily-workspace';
@@ -1468,6 +1469,13 @@ function RecordPanel({
           </SheetDescription>
         </SheetHeader>
         <div className="source-sheet-body">
+          {record.kind === 'Expediente' && (
+            <ContractStatus
+              kind="record"
+              id={id}
+              canEdit={editable && user.role !== 'Consulta'}
+            />
+          )}
           {extras.entries
             .filter((entry) => entry.pinned)
             .map((entry) => (
@@ -1801,7 +1809,7 @@ function RecordPanel({
             admin={user.role === 'Administrador'}
             onClose={() => setEditing(false)}
             onReload={onReload}
-            onSave={async (values, newObservation, reason) => {
+            onSave={async (values, newObservation, reason, expectedVersion) => {
               const correction = await api<
                 NonNullable<Dataset['corrections']>[string]
               >('record-correction', 'POST', {
@@ -1810,7 +1818,7 @@ function RecordPanel({
                 reason,
                 recordId: id,
                 sourceHash: data.sourceHash,
-                version: record.correction?.version ?? 0,
+                version: expectedVersion,
               });
               onSaved(id, correction);
               setNotice('Cambios guardados correctamente.');

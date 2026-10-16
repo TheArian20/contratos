@@ -1,3 +1,4 @@
+import { contractStatuses } from '@/lib/daily-operations';
 import { loadRecordCorrections } from '@/lib/record-corrections-store';
 import { pinkMeansPaid } from '@/lib/record-colors';
 import { reconcileDataset } from '@/lib/dataset-update';
@@ -779,6 +780,109 @@ async function handler(request: Request) {
         throw e;
       }
       return json({ ok: true });
+    }
+    if (action === 'contract-state') {
+      const input =
+        request.method === 'GET'
+          ? Object.fromEntries(url.searchParams)
+          : await body(request);
+      const kind = input.kind,
+        id = text(input.id, 300);
+      if (!['lot', 'record'].includes(kind) || !id)
+        fail(400, 'Contrato no válido.');
+      let personId: string | null = null;
+      if (kind === 'lot') {
+        const lot = await DB.prepare('SELECT person_id FROM lots WHERE id=?')
+          .bind(id)
+          .first<{ person_id: string }>();
+        if (!lot) fail(404, 'Lote no encontrado.');
+        personId = lot.person_id;
+      } else {
+        await validRecord(id);
+        personId =
+          (
+            await DB.prepare(
+              'SELECT person_id FROM person_sources WHERE record_id=?',
+            )
+              .bind(id)
+              .first<{ person_id: string }>()
+          )?.person_id ?? null;
+      }
+      const key = `contract-state:${kind}:${id}`;
+      if (request.method === 'POST') {
+        editor();
+        const reason = text(input.reason, 1500);
+        if (
+          !contractStatuses.includes(input.status) ||
+          !reason ||
+          !Number.isSafeInteger(input.version) ||
+          input.version < 0
+        )
+          fail(400, 'Revisa el estado y escribe un motivo.');
+        const after = {
+          status: input.status,
+          version: input.version + 1,
+          updated: new Date().toISOString(),
+        };
+        const target = {
+          key,
+          status: input.status,
+          reason,
+          username: user.username,
+        };
+        const statements = [
+          DB.prepare(
+            "INSERT INTO settings (key,value) SELECT ?,? WHERE ?=0 OR EXISTS(SELECT 1 FROM settings WHERE key=?) ON CONFLICT(key) DO UPDATE SET value=excluded.value WHERE json_extract(settings.value,'$.version')=?",
+          ).bind(key, JSON.stringify(after), input.version, key, input.version),
+          DB.prepare(
+            'INSERT INTO audit (id,action,user_id,target,created) SELECT ?,?,?,?,? WHERE changes()=1',
+          ).bind(
+            crypto.randomUUID(),
+            'contract_state_changed',
+            user.id,
+            JSON.stringify(target),
+            after.updated,
+          ),
+        ];
+        if (personId)
+          statements.push(
+            DB.prepare(
+              'INSERT INTO changes (id,person_id,entity,before,after,reason,author,created,author_id,author_username) SELECT ?,?,?,?,?,?,?,?,?,? WHERE changes()=1',
+            ).bind(
+              crypto.randomUUID(),
+              personId,
+              'Estado del contrato',
+              JSON.stringify({ version: input.version }),
+              JSON.stringify({ kind, id, status: input.status }),
+              reason,
+              user.name,
+              after.updated,
+              user.id,
+              user.username,
+            ),
+          );
+        const result = await DB.batch(statements);
+        if (result[0].meta.changes !== 1)
+          fail(
+            409,
+            'Otra cuenta cambió este estado. Tu selección no se guardó. Carga la versión actual y vuelve a revisarla.',
+          );
+      } else if (request.method !== 'GET') fail(405, 'Método no permitido.');
+      const row = await DB.prepare('SELECT value FROM settings WHERE key=?')
+        .bind(key)
+        .first<{ value: string }>();
+      const current = row
+        ? JSON.parse(row.value)
+        : { status: 'Por revisar', version: 0 };
+      if (user.role === 'Administrador')
+        current.history = (
+          await DB.prepare(
+            "SELECT target,created FROM audit WHERE action='contract_state_changed' AND json_extract(target,'$.key')=? ORDER BY created DESC",
+          )
+            .bind(key)
+            .all<{ target: string; created: string }>()
+        ).results.map((r) => ({ ...JSON.parse(r.target), created: r.created }));
+      return json(current);
     }
     if (action === 'entry-pin' && request.method === 'POST') {
       editor();

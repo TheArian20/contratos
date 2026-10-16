@@ -34,7 +34,15 @@ La entrada principal es Trabajo diario: Hoy, Personas, Registrar pago y Pendient
 - El historial de la ficha conserva antes, después, autor, fecha y motivo para personas, lotes, cuentas, vencimientos, vínculos y movimientos.
 - Los abonos de la versión anterior conservan sus datos y quedan pendientes de asignación a una cuenta. Administración puede vincularlos, con motivo, antes de programar cuotas y siempre fuera del corte histórico. El asistente no modifica vínculos reales ni confirma saldos por su cuenta.
 
-## Datos pendientes de confirmar
+## Opciones de seguimiento y revisión
+
+- **Compromisos de pago:** sección de Trabajo diario y pestaña de cada ficha. Permite registrar y modificar importe, fecha y cuenta específica, con estados vencido, para hoy, próximo y atendido. Una promesa o su seguimiento no inserta abonos ni cambia saldos. Las operaciones nuevas usan un identificador para evitar duplicarlas al reintentar; las modificaciones comprueban la versión vigente.
+- **Posibles duplicados:** compara identificaciones completas y ubicaciones normalizadas dentro del mismo proyecto. Agrupa las filas ya vinculadas a una persona para no señalar su propia ficha como duplicada. No une, borra ni reasigna personas. Nueva persona avisa y permite abrir registros coincidentes; un lote coincidente exige revisión expresa antes de continuar.
+- **Estado del contrato:** se gestiona por lote confirmado o expediente original: por revisar, pendiente de elaborar, pendiente de firma, firmado y pendiente de documento. No se deduce del saldo o del color, ni se copia automáticamente entre expedientes. Gestor y Administración actualizan el estado; solo Administración recibe su historial de cambios.
+- **Edición simultánea:** las escrituras con versión antigua se rechazan. La edición de personas y lotes conserva el borrador fallido y ofrece descartarlo para cargar los datos actuales. La edición del Excel conserva la versión con la que se abrió el formulario.
+- **Cierre diario:** resumen imprimible/PDF por fecha de pago o de registro, separado por proyecto, concepto y nombre de gestor. Excluye anulaciones e importes históricos, muestra las anulaciones realizadas ese día y distingue cuentas con saldo pendiente de confirmar. Es un resumen recalculable, no un bloqueo contable. Los nombres de gestor iguales se agrupan conforme al autor conservado en cada pago.
+
+## Importes e información de origen
 
 TOTAL A COBRAR queda fuera de cálculos por instrucción del propietario. No se presenta como deuda cero ningún saldo desconocido. Los conceptos pueden tener cuotas propias; no se deduce de cada importe si es precio, saldo o pago. Las filas sin encabezados se conservan como anotaciones pendientes de clasificación. Los colores se muestran como referencia visual, sin adjudicar automáticamente estados legales o de pago. Las fórmulas usan su resultado guardado; no se recalculan. El original descargable permite comprobar formatos y contexto completos.
 
