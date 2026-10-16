@@ -1,3 +1,8 @@
+import {
+  backupInfo,
+  createStoredBackup,
+  downloadStoredBackup,
+} from '@/lib/backup-storage';
 import { contractStatuses } from '@/lib/daily-operations';
 import { loadRecordCorrections } from '@/lib/record-corrections-store';
 import { pinkMeansPaid } from '@/lib/record-colors';
@@ -237,6 +242,47 @@ async function handler(request: Request) {
       if (user.role === 'Consulta')
         fail(403, 'Tu cuenta permite solo consultar.');
     };
+    if (
+      ['backup-info', 'backup-create', 'backup-saved'].includes(action ?? '')
+    ) {
+      admin();
+      if (action === 'backup-info' && request.method === 'GET')
+        return json(await backupInfo(DB));
+      if (action === 'backup-saved' && request.method === 'GET')
+        return downloadStoredBackup(
+          DB,
+          FILES,
+          url.searchParams.get('id') ?? '',
+        );
+      if (action === 'backup-create' && request.method === 'POST') {
+        const input = await body(request);
+        if (
+          typeof input.requestId !== 'string' ||
+          !/^manual-[0-9a-f-]{36}$/.test(input.requestId)
+        )
+          fail(400, 'Solicitud de respaldo inválida.');
+        try {
+          return json(
+            await createStoredBackup(
+              DB,
+              FILES,
+              'manual',
+              user.id,
+              input.requestId,
+            ),
+          );
+        } catch (e) {
+          return json(
+            {
+              error:
+                e instanceof Error ? e.message : 'No se completó la copia.',
+            },
+            503,
+          );
+        }
+      }
+      fail(405, 'Método no permitido.');
+    }
     if (action === 'backup' && request.method === 'GET') {
       admin();
       try {

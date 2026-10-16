@@ -1,5 +1,6 @@
 'use client';
 import { matchesSearch } from '@/lib/person-search';
+import { HelpPanel } from './help-panel';
 import { BackupPanel } from './backup-panel';
 import { recordColors } from '@/lib/record-colors';
 import { DocumentLibrary } from './document-library';
@@ -119,6 +120,7 @@ export function SecurePortal() {
   const [sort, setSort] = useState('origin');
   const [projectFilter, setProjectFilter] = useState('');
   const [focusPerson, setFocusPerson] = useState('');
+  const [dailyTab, setDailyTab] = useState('Hoy');
   const [user, setUser] = useState<User | null>(null),
     [loading, setLoading] = useState(true),
     [data, setData] = useState<Dataset | null>(null),
@@ -409,6 +411,14 @@ export function SecurePortal() {
           )}
           <button
             onClick={() => {
+              setView('Ayuda');
+              setMenu(false);
+            }}
+          >
+            Ayuda paso a paso
+          </button>
+          <button
+            onClick={() => {
               setView('Cuenta');
               setMenu(false);
             }}
@@ -469,7 +479,8 @@ export function SecurePortal() {
               userId={user.id}
               onAdmin={(destination) => setView(destination)}
               author={user.name}
-              key={focusPerson}
+              key={`${focusPerson}:${dailyTab}`}
+              initialTab={dailyTab}
               initialPersonId={focusPerson}
               data={data}
               role={user.role}
@@ -495,6 +506,16 @@ export function SecurePortal() {
             />
           ) : view === 'Actualizar base' ? (
             <DatasetUpdatePanel current={data} onDone={refresh} />
+          ) : view === 'Ayuda' ? (
+            <HelpPanel
+              role={user.role}
+              onNavigate={(destination, tab) => {
+                setFocusPerson('');
+                setDailyTab(tab ?? 'Hoy');
+                setView(destination);
+                setMenu(false);
+              }}
+            />
           ) : view === 'Respaldos' && user.role === 'Administrador' ? (
             <BackupPanel />
           ) : view === 'Equipo' ? (

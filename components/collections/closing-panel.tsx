@@ -1,4 +1,5 @@
 'use client';
+import { HelpTip } from './help-panel';
 import { useState } from 'react';
 import { dailyClosing, type DuplicateRecord } from '@/lib/daily-operations';
 import { soles, todayLocal, validDay, type WorkState } from '@/lib/work-ledger';
@@ -79,6 +80,7 @@ export function ClosingPanel({
           Imprimir / guardar PDF
         </button>
       </div>
+      <HelpTip id="cierre" />
       <div className="print-report">
         <h2>Resumen de cierre diario · {day}</h2>
         <p>

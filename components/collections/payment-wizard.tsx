@@ -1,4 +1,5 @@
 ﻿'use client';
+import { HelpTip } from './help-panel';
 import { matchesPerson } from '@/lib/person-search';
 import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
 import { WorkSelect } from './work-select';
@@ -71,6 +72,7 @@ export function PaymentWizard({
     );
   return (
     <section className="panel payment-wizard" onChange={() => setDirty(true)}>
+      <HelpTip id="pago" />
       <h2>Registrar pago</h2>
       {warnings.length > 0 && (
         <p className="source-pending">

@@ -2,7 +2,13 @@
 
 Administración puede descargar una copia desde **Respaldos y recuperación**. La copia contiene tablas de negocio, usuarios con hashes de contraseña, historial, todas las versiones registradas del Excel y los documentos referenciados. No incluye sesiones abiertas, intentos de acceso, credenciales del alojamiento ni el token de configuración.
 
-Las copias son manuales. Haz una antes de importar una base y después de jornadas con cambios importantes. Guarda varias versiones en almacenamiento privado y comprueba que la descarga terminó. No subas las copias a GitHub. La comprobación SHA-256 detecta daños o archivos faltantes; no certifica quién creó la copia.
+Administración puede guardar una copia privada en el alojamiento, consultar su estado y descargarla. El sistema vuelve a leer los bloques guardados y comprueba sus hashes antes de marcarla completa. Los reintentos de una misma solicitud reutilizan la copia completada. No se eliminan automáticamente copias anteriores.
+
+El respaldo diario requiere conectar la herramienta privada de Cartera, comprobar una ejecución y crear la tarea de Sites. Hasta registrar una programación real, la pantalla muestra que su activación está pendiente. La programación registrada es informativa: si se pausa o modifica la tarea en Sites, también debe actualizarse ese registro. Las herramientas de automatización requieren la identidad verificada del propietario; nunca una contraseña de la aplicación en el mensaje de la tarea.
+
+Haz una copia antes de importar una base y después de jornadas con cambios importantes. Descarga también varias versiones a almacenamiento privado independiente: una copia dentro del mismo alojamiento no protege contra la pérdida de acceso al alojamiento. No subas las copias a GitHub. La comprobación SHA-256 detecta daños o archivos faltantes; no certifica quién creó la copia. Los bloqueos, estados y programación operativa de respaldos no se incluyen en las tablas exportadas.
+
+En **Ayuda paso a paso**, cada rol encuentra instrucciones para sus tareas. Los formularios de personas, pagos, compromisos y cierre incluyen ayuda contextual.
 
 ## Comprobar y ensayar la recuperación
 

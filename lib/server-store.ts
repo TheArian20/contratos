@@ -4,6 +4,7 @@ export function bindings() {
     DB: D1Database;
     FILES: R2Bucket;
     SETUP_TOKEN?: string;
+    BACKUP_OWNER_EMAIL?: string;
   };
   if (!values.DB || !values.FILES)
     throw new Error('Almacenamiento no disponible.');

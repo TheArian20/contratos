@@ -1,15 +1,147 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { workCall, workError } from './work-shared';
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
+import type { SavedBackup, BackupSchedule } from '@/lib/backup-storage';
 import { verifyBackup, type BackupManifest } from '@/lib/backup-format';
 export function BackupPanel() {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [status, setStatus] = useState(''),
     [manifest, setManifest] = useState<BackupManifest | null>(null);
+  const [info, setInfo] = useState<{
+    runs: Omit<SavedBackup, 'key'>[];
+    schedule: BackupSchedule | null;
+  }>({ runs: [], schedule: null });
+  const [manualId, setManualId] = useState(
+    () => 'manual-' + crypto.randomUUID(),
+  );
+  const [loading, setLoading] = useState(true);
+  useUnsavedChanges(false, busy);
+  const refresh = async () => {
+    setInfo(await workCall<typeof info>('backup-info'));
+  };
+  useEffect(() => {
+    let active = true;
+    void workCall<typeof info>('backup-info')
+      .then((result) => {
+        if (active) setInfo(result);
+      })
+      .catch((e) => {
+        if (active) setError(workError(e));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  const latest = info.runs.find((run) => run.status === 'complete');
   return (
     <section className="panel secure-content backup-panel">
       <p className="eyebrow">SOLO ADMINISTRACIÓN</p>
       <h1>Respaldos y recuperación</h1>
+      <section className="backup-status">
+        <h2>Estado de protección</h2>
+        <p>
+          {loading
+            ? 'Consultando copias…'
+            : latest
+              ? `Última copia completa: ${new Date(latest.finished ?? latest.started).toLocaleString('es-PE')}`
+              : 'Todavía no hay una copia privada completa guardada.'}
+        </p>
+        {!loading &&
+          (!latest ||
+            Date.now() - Date.parse(latest.finished ?? latest.started) >
+              48 * 60 * 60 * 1000) && (
+            <p className="source-pending">
+              Conviene crear una copia ahora: no hay una copia completa de las
+              últimas 48 horas.
+            </p>
+          )}
+        <p>
+          {info.schedule?.enabled
+            ? `Programación registrada: todos los días a las ${info.schedule.time} (${info.schedule.timezone}). Revisa abajo el resultado de cada ejecución.`
+            : 'Programación automática pendiente de activar. Puedes guardar una copia manual ahora.'}
+        </p>
+        <div className="work-actions">
+          <button
+            className="primary-button"
+            disabled={busy || loading}
+            onClick={async () => {
+              setBusy(true);
+              setError('');
+              setStatus('Guardando y verificando la copia privada…');
+              try {
+                await workCall('backup-create', { requestId: manualId });
+                setManualId('manual-' + crypto.randomUUID());
+                await refresh();
+                setStatus(
+                  'Copia completa guardada y comprobada. Ya puedes descargarla.',
+                );
+              } catch (e) {
+                setStatus('');
+                setError(workError(e));
+                await refresh().catch(() => {});
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {busy ? 'Procesando…' : 'Guardar copia privada ahora'}
+          </button>
+          <button
+            className="secondary-button"
+            disabled={busy}
+            onClick={() =>
+              void refresh()
+                .then(() => setError(''))
+                .catch((e) => setError(workError(e)))
+            }
+          >
+            Actualizar estado
+          </button>
+        </div>
+        <p>
+          Las copias privadas se guardan en el alojamiento de Cartera. Conserva
+          también una descarga fuera del sitio para poder recuperarte si pierdes
+          acceso al alojamiento.
+        </p>
+      </section>
+      <h2>Copias guardadas</h2>
+      <p>
+        Se muestran las últimas 60 ejecuciones. Solo Administración puede
+        descargar sus archivos.
+      </p>
+      {info.runs.map((run) => (
+        <div className="agenda-work-row" key={run.id}>
+          <div>
+            <strong>
+              {run.mode === 'daily' ? 'Copia diaria' : 'Copia manual'} ·{' '}
+              {new Date(run.started).toLocaleString('es-PE')}
+            </strong>
+            <p>
+              {run.status === 'complete'
+                ? 'Completa y comprobada'
+                : run.status === 'failed'
+                  ? 'No se completó'
+                  : 'En preparación; actualiza para comprobar el resultado'}
+              {run.size ? ` · ${(run.size / 1024 / 1024).toFixed(1)} MB` : ''}
+            </p>
+            {run.error && <small>{run.error}</small>}
+          </div>
+          {run.status === 'complete' && (
+            <a
+              className="secondary-button"
+              href={`/api/secure/backup-saved?id=${encodeURIComponent(run.id)}`}
+            >
+              Descargar copia
+            </a>
+          )}
+        </div>
+      ))}
+      <h2>Descargar una copia actual</h2>
       <p>
         Descarga una copia de las personas, lotes, pagos, observaciones,
         usuarios, historial, versiones del Excel y documentos adjuntos.
@@ -145,7 +277,8 @@ export function BackupPanel() {
         El repositorio incluye <code>docs/RESPALDOS.md</code> y{' '}
         <code>scripts/restore_backup.py</code>. Descarga una copia antes de
         importar otra base y después de jornadas con cambios importantes. Los
-        respaldos son manuales.
+        respaldos guardados se muestran arriba; la programación solo figura
+        activa después de configurarse en Sites.
       </p>
     </section>
   );

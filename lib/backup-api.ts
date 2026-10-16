@@ -3,7 +3,7 @@ import {
   tarHeader,
   sha256,
   type BackupManifest,
-} from './backup-format';
+} from './backup-format.ts';
 export async function exportBackup(
   DB: D1Database,
   FILES: R2Bucket,
@@ -13,7 +13,7 @@ export async function exportBackup(
     DB.prepare(
       "SELECT type,name,tbl_name,sql FROM sqlite_master WHERE sql IS NOT NULL AND type IN ('table','index') ORDER BY type DESC,name",
     ),
-    ...backupTables.map((t) => DB.prepare(`SELECT * FROM "${t}"`)),
+    ...backupTables.map((t) => DB.prepare(t === 'settings' ? "SELECT * FROM settings WHERE key NOT LIKE 'backup-%'" : `SELECT * FROM "${t}"`)),
   ]);
   if (snapshots.some((s) => !s.success))
     throw new Error('No se pudo obtener una copia consistente.');

@@ -72,11 +72,13 @@ export function DailyWorkspace({
   onBrowse,
   author,
   initialPersonId = '',
+  initialTab = 'Hoy',
 }: {
   userId: string;
   onAdmin: (destination: string) => void;
   author: string;
   initialPersonId?: string;
+  initialTab?: string;
   data: Dataset | null;
   role: string;
   onBrowse: (query: string) => void;
@@ -93,7 +95,7 @@ export function DailyWorkspace({
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState(initialPersonId ? 'Personas' : 'Hoy'),
+  const [tab, setTab] = useState(initialPersonId ? 'Personas' : initialTab),
     [personId, setPersonId] = useState(initialPersonId),
     [query, setQuery] = useState(''),
     [page, setPage] = useState(0),

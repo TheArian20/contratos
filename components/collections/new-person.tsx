@@ -1,4 +1,5 @@
 'use client';
+import { HelpTip } from './help-panel';
 import {
   normalizedReference,
   type DuplicateRecord,
@@ -106,6 +107,7 @@ export function NewPerson({
             pueden completar después.
           </DialogDescription>
         </DialogHeader>
+        <HelpTip id="persona" />
         {error && <p role="alert">{error}</p>}
         <form
           className="secure-form"

@@ -1,4 +1,5 @@
 'use client';
+import { HelpTip } from './help-panel';
 import { useState } from 'react';
 import { commitmentStatus } from '@/lib/daily-operations';
 import { matchesPerson, matchesSearch } from '@/lib/person-search';
@@ -71,6 +72,7 @@ export function CommitmentsPanel({
         Una promesa de pago no reduce la deuda. Si recibiste dinero, regístralo
         desde la ficha. «Atendido» solo cierra el seguimiento.
       </p>
+      <HelpTip id="compromiso" />
       <div className="report-metrics">
         {['Vencido', 'Para hoy', 'Próximo'].map((s) => (
           <button
