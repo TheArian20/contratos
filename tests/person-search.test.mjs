@@ -7,6 +7,29 @@ import {
 } from '../lib/person-search.ts';
 import { colorMeaning } from '../lib/record-colors.ts';
 
+test('names tolerate one missing, extra, replaced or transposed letter', () => {
+  const name = 'ELVIS FENANDEZ CARRASCO';
+  assert.ok(matchesSearch('elvis fernandez carrasco', [name], [name]));
+  for (const query of ['Fernndez', 'Fernanndez', 'Fernandes', 'Fernadnez']) {
+    assert.ok(matchesSearch(query, ['Fernández'], ['Fernández']), query);
+  }
+  assert.ok(matchesSearch('carrasco elvis fernandez', [name], [name]));
+  assert.equal(matchesSearch('elvis gonzalez carrasco', [name], [name]), false);
+  assert.equal(matchesSearch('ana', ['Eva'], ['Eva']), false);
+});
+
+test('name tolerance cannot change DNI, lot, project or contract matches', () => {
+  const fields = ['Elvis Fernandez', '12345678', 'B-24AA', 'CASAS', 'ABCD'];
+  for (const query of ['12345679', 'B25AA', 'CASOS', 'ABCE', 'elvis 12345679'])
+    assert.equal(
+      matchesSearch(query, fields, ['Elvis Fernandez']),
+      false,
+      query,
+    );
+  assert.ok(matchesSearch('elivs B24AA', fields, ['Elvis Fernandez']));
+  assert.equal(matchesSearch('fernandez', ['FENANDEZ']), false);
+});
+
 test('partial names work from one letter and ignore accents and repeated spaces', () => {
   for (const query of [
     'm',

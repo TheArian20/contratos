@@ -51,7 +51,7 @@ export function ProjectPeople({
         (!project || r.project === project) &&
         (color === 'all' || r.color === color) &&
         (!unidentified || !r.document) &&
-        matchesSearch(query, [r.name, r.document, r.project]),
+        matchesSearch(query, [r.name, r.document, r.project], [r.name]),
     )
     .sort(
       (a, b) =>

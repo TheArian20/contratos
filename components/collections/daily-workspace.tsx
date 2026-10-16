@@ -307,7 +307,11 @@ export function DailyWorkspace({
         ),
     );
   const filteredPending = pending.filter((c) =>
-    matchesSearch(query, [c.name, c.document, c.lot, c.project, c.contract]),
+    matchesSearch(
+      query,
+      [c.name, c.document, c.lot, c.project, c.contract],
+      [c.name],
+    ),
   );
   if (loading)
     return (

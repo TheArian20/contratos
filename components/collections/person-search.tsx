@@ -19,7 +19,11 @@ export function PersonSearch({
 }) {
   const [page, setPage] = useState(0);
   const matching = candidates.filter((c) =>
-    matchesSearch(query, [c.name, c.document, c.contract, c.lot, c.project]),
+    matchesSearch(
+      query,
+      [c.name, c.document, c.contract, c.lot, c.project],
+      [c.name],
+    ),
   );
   const linked = new Map(
     state.sources
@@ -66,6 +70,10 @@ export function PersonSearch({
   return (
     <section className="panel secure-content">
       <h2>Resultados de la búsqueda</h2>
+      <p>
+        También se incluyen nombres con una letra diferente. Comprueba el DNI y
+        el lote antes de abrir o modificar una ficha.
+      </p>
       <p role="status">
         {rows.length} coincidencias en fichas de trabajo y expedientes del
         Excel.

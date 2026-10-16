@@ -240,12 +240,16 @@ export function SecurePortal() {
             record.kind === 'Expediente'
           )
             return false;
-          return matchesSearch(query, [
-            ...Object.values(recordValues(record)),
-            record.lot,
-            ...record.observations.map((f) => cellText(f.cell)),
-            ...record.fields.map((f) => cellText(f.cell)),
-          ]);
+          return matchesSearch(
+            query,
+            [
+              ...Object.values(recordValues(record)),
+              record.lot,
+              ...record.observations.map((f) => cellText(f.cell)),
+              ...record.fields.map((f) => cellText(f.cell)),
+            ],
+            [record.person],
+          );
         })
         .sort((a, b) =>
           sort === 'origin'
