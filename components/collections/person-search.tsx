@@ -1,6 +1,7 @@
 'use client';
 import { matchesPerson, matchesSearch } from '@/lib/person-search';
 import { ComplainantAlert } from './complainant-alert';
+import { colorNeedsReview } from '@/lib/record-colors';
 import type { WorkState } from '@/lib/work-ledger';
 import type { Candidate } from './work-shared';
 import { useState } from 'react';
@@ -55,6 +56,9 @@ export function PersonSearch({
           ),
         ].join(' / '),
         kind: 'Ficha de trabajo',
+        colorReview:
+          colorNeedsReview(p.color, p.project || '') ||
+          candidates.some((c) => linked.get(c.id) === p.id && c.colorReview),
         complainant: candidates.some(
           (c) => linked.get(c.id) === p.id && c.flags?.includes('Denunciante'),
         ),
@@ -68,6 +72,7 @@ export function PersonSearch({
         document: c.document,
         location: `${c.project} · ${c.lot || 'Lote por confirmar'} · ${c.contract || 'Contrato por confirmar'}`,
         kind: 'Expediente del Excel',
+        colorReview: c.colorReview,
         complainant: c.flags?.includes('Denunciante'),
         open: () => onSource(c.sheet, c.row),
       })),
@@ -93,7 +98,9 @@ export function PersonSearch({
         <article key={r.key} className="agenda-work-row">
           <div>
             <strong>{r.name}</strong>
-            {r.complainant && <ComplainantAlert />}
+            {(r.complainant || r.colorReview) && (
+              <ComplainantAlert explicit={!!r.complainant} />
+            )}
             <p>DNI: {r.document || 'Por confirmar'}</p>
             <p>{r.location}</p>
             <small>{r.kind}</small>

@@ -42,7 +42,7 @@ import {
 } from './work-shared';
 import { ReportPanel } from './report-panel';
 import { confirmedSummary } from '@/lib/reports';
-import { recordColors } from '@/lib/record-colors';
+import { recordColors, colorNeedsReview } from '@/lib/record-colors';
 import { WorkPerson } from './work-person';
 import { WorkForm } from './work-form';
 import { NewPerson } from './new-person';
@@ -154,6 +154,7 @@ export function DailyWorkspace({
               .map((r) => ({
                 id: recordKey(data, r),
                 flags: r.situation.labels,
+                colorReview: colorNeedsReview(r.color, s.name),
                 sheet: i,
                 row: r.row,
                 name: r.person,

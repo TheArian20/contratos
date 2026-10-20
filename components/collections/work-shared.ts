@@ -8,6 +8,7 @@
 export type Candidate = {
   id: string;
   flags?: string[];
+  colorReview?: boolean;
   sheet: number;
   row: number;
   name: string;

@@ -1,6 +1,7 @@
 ﻿'use client';
 import { ContractStatus } from './contract-status';
 import { ComplainantAlert } from './complainant-alert';
+import { colorNeedsReview } from '@/lib/record-colors';
 import { CommitmentsPanel } from './commitments-panel';
 import { personGaps } from '@/lib/work-ease';
 import { ObservationCard } from './observation-card';
@@ -85,6 +86,12 @@ export function WorkPerson({
   const summary = confirmedSummary(accounts, state);
   const gaps = personGaps(person, state);
   const notes = state.entries.filter((e) => sourceIds.has(e.record_id));
+  const explicitComplainant = candidates.some(
+    (c) => sourceIds.has(c.id) && c.flags?.includes('Denunciante'),
+  );
+  const colorReview =
+    colorNeedsReview(person.color, person.project || '') ||
+    candidates.some((c) => sourceIds.has(c.id) && c.colorReview);
   return (
     <>
       <button data-navigation className="secondary-button" onClick={onBack}>
@@ -97,9 +104,9 @@ export function WorkPerson({
         <div>
           <p className="eyebrow">FICHA DE PERSONA CONFIRMADA</p>
           <h2>{person.name}</h2>
-          {candidates.some(
-            (c) => sourceIds.has(c.id) && c.flags?.includes('Denunciante'),
-          ) && <ComplainantAlert />}
+          {(explicitComplainant || colorReview) && (
+            <ComplainantAlert explicit={explicitComplainant} />
+          )}
           {person.color && (
             <p className="record-color-label">
               {colorLabel(person.color)} ·{' '}

@@ -5,7 +5,18 @@ import {
   matchesSearch,
   sameDocument,
 } from '../lib/person-search.ts';
-import { colorMeaning } from '../lib/record-colors.ts';
+import { colorMeaning, colorNeedsReview } from '../lib/record-colors.ts';
+
+test('review alerts follow each project legend rather than a universal color', () => {
+  assert.equal(colorNeedsReview('red', 'CASAS'), true);
+  assert.equal(colorNeedsReview('yellow', 'CIUDAD DE DIOS'), true);
+  assert.equal(colorNeedsReview('yellow', 'SERVICIOS - CIUDAD DE DIOS'), true);
+  assert.equal(colorNeedsReview('red', 'CIUDAD DE DIOS'), false);
+  assert.equal(colorNeedsReview('red', 'AA DATOS'), false);
+  assert.equal(colorNeedsReview('yellow', 'CASAS'), false);
+  assert.equal(colorNeedsReview('pink', 'CIUDAD DE DIOS'), false);
+  assert.equal(colorNeedsReview('', 'CASAS'), false);
+});
 
 test('names tolerate one missing, extra, replaced or transposed letter', () => {
   const name = 'ELVIS FENANDEZ CARRASCO';

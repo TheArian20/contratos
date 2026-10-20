@@ -53,6 +53,9 @@ export function colorMeaning(color: string | undefined, project: string) {
     legend?.find(([value]) => value === color)?.[1] ?? 'Etiqueta de seguimiento'
   );
 }
+export function colorNeedsReview(color: string | undefined, project: string) {
+  return colorMeaning(color, project).startsWith('Observación / denunciante:');
+}
 export const colorLegends = {
   Casas: [
     ['green', 'Cancelaron totalidad'],
