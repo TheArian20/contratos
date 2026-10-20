@@ -1,5 +1,6 @@
 'use client';
 import { matchesPerson, matchesSearch } from '@/lib/person-search';
+import { ComplainantAlert } from './complainant-alert';
 import type { WorkState } from '@/lib/work-ledger';
 import type { Candidate } from './work-shared';
 import { useState } from 'react';
@@ -54,6 +55,9 @@ export function PersonSearch({
           ),
         ].join(' / '),
         kind: 'Ficha de trabajo',
+        complainant: candidates.some(
+          (c) => linked.get(c.id) === p.id && c.flags?.includes('Denunciante'),
+        ),
         open: () => onPerson(p.id),
       })),
     ...matching
@@ -64,6 +68,7 @@ export function PersonSearch({
         document: c.document,
         location: `${c.project} · ${c.lot || 'Lote por confirmar'} · ${c.contract || 'Contrato por confirmar'}`,
         kind: 'Expediente del Excel',
+        complainant: c.flags?.includes('Denunciante'),
         open: () => onSource(c.sheet, c.row),
       })),
   ];
@@ -88,6 +93,7 @@ export function PersonSearch({
         <article key={r.key} className="agenda-work-row">
           <div>
             <strong>{r.name}</strong>
+            {r.complainant && <ComplainantAlert />}
             <p>DNI: {r.document || 'Por confirmar'}</p>
             <p>{r.location}</p>
             <small>{r.kind}</small>

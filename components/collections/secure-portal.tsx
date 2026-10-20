@@ -1,5 +1,6 @@
 'use client';
 import { matchesSearch } from '@/lib/person-search';
+import { ComplainantAlert } from './complainant-alert';
 import { HelpPanel } from './help-panel';
 import { BackupPanel } from './backup-panel';
 import { recordColors } from '@/lib/record-colors';
@@ -891,6 +892,9 @@ export function SecurePortal() {
                                     'Fila con formato'}
                                 </strong>
                                 <small className="record-kind">{r.kind}</small>
+                                {r.situation.complainant && (
+                                  <ComplainantAlert />
+                                )}
                                 {r.color && (
                                   <small className="record-color-label">
                                     {colorLabel(r.color)} ·{' '}
@@ -1584,6 +1588,7 @@ function RecordPanel({
               ? 'Pagado totalmente · Sin deuda'
               : 'Saldo por validar · Sin cálculo automático'}
           </div>
+          {record.situation.complainant && <ComplainantAlert />}
           {record.correction && (
             <section className="source-group">
               <h3>Datos actualizados</h3>

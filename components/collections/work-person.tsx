@@ -1,5 +1,6 @@
 ﻿'use client';
 import { ContractStatus } from './contract-status';
+import { ComplainantAlert } from './complainant-alert';
 import { CommitmentsPanel } from './commitments-panel';
 import { personGaps } from '@/lib/work-ease';
 import { ObservationCard } from './observation-card';
@@ -96,6 +97,9 @@ export function WorkPerson({
         <div>
           <p className="eyebrow">FICHA DE PERSONA CONFIRMADA</p>
           <h2>{person.name}</h2>
+          {candidates.some(
+            (c) => sourceIds.has(c.id) && c.flags?.includes('Denunciante'),
+          ) && <ComplainantAlert />}
           {person.color && (
             <p className="record-color-label">
               {colorLabel(person.color)} ·{' '}
