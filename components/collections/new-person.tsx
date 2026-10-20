@@ -15,7 +15,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { ColorPicker } from './color-picker';
-import { colorLabel } from '@/lib/record-colors';
+import { colorLabel, colorMeaning } from '@/lib/record-colors';
 import type { WorkSave } from './work-shared';
 const fields = [
   ['name', 'Nombre completo', 150],
@@ -257,7 +257,11 @@ export function NewPerson({
                   ? `La persona aparecerá en ${data.project}. Puedes completar su lote más adelante.`
                   : 'Elige un proyecto. No necesitas conocer todavía la ubicación del lote.'}
               </p>
-              <ColorPicker value={color} onChange={setColor} />
+              <ColorPicker
+                value={color}
+                onChange={setColor}
+                project={data.project}
+              />
               <p>
                 El color es una etiqueta de esta ficha. Los saldos se
                 confirmarán por lote y concepto.
@@ -284,7 +288,9 @@ export function NewPerson({
                     </div>
                   ))}
               </dl>
-              <p>Color: {colorLabel(color)}</p>
+              <p>
+                Color: {colorLabel(color)} · {colorMeaning(color, data.project)}
+              </p>
               {observation.trim() && (
                 <p className="observation-text">
                   <strong>Observación inicial:</strong> {observation}

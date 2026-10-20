@@ -11,7 +11,7 @@ import { ColorLegend } from './color-legend';
 import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
 import { WorkSelect } from './work-select';
 import { PersonColorEditor } from './person-color-editor';
-import { colorStyle, colorLabel } from '@/lib/record-colors';
+import { colorStyle, colorLabel, colorMeaning } from '@/lib/record-colors';
 import { useState } from 'react';
 import { Plus, ArrowLeft } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -98,7 +98,8 @@ export function WorkPerson({
           <h2>{person.name}</h2>
           {person.color && (
             <p className="record-color-label">
-              Etiqueta: {colorLabel(person.color)}
+              {colorLabel(person.color)} ·{' '}
+              {colorMeaning(person.color, person.project || '')}
             </p>
           )}
           <p>

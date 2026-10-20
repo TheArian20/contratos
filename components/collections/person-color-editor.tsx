@@ -9,7 +9,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { ColorPicker } from './color-picker';
-import { colorLabel } from '@/lib/record-colors';
+import { colorLabel, colorMeaning } from '@/lib/record-colors';
 import type { Person } from '@/lib/work-ledger';
 import { workCall, workError } from './work-shared';
 export function PersonColorEditor({
@@ -77,13 +77,23 @@ export function PersonColorEditor({
         >
           {review ? (
             <section>
-              <p>Antes: {colorLabel(person.color)}</p>
-              <p>Ahora: {colorLabel(color)}</p>
+              <p>
+                Antes: {colorLabel(person.color)} ·{' '}
+                {colorMeaning(person.color, person.project || '')}
+              </p>
+              <p>
+                Ahora: {colorLabel(color)} ·{' '}
+                {colorMeaning(color, person.project || '')}
+              </p>
               <p>Motivo: {reason}</p>
             </section>
           ) : (
             <>
-              <ColorPicker value={color} onChange={setColor} />
+              <ColorPicker
+                value={color}
+                onChange={setColor}
+                project={person.project || ''}
+              />
               <label>
                 Motivo del cambio
                 <textarea

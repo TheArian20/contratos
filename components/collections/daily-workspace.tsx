@@ -47,7 +47,7 @@ import { WorkPerson } from './work-person';
 import { WorkForm } from './work-form';
 import { NewPerson } from './new-person';
 import { ColorLegend } from './color-legend';
-import { colorStyle, colorLabel } from '@/lib/record-colors';
+import { colorStyle, colorLabel, colorMeaning } from '@/lib/record-colors';
 import { PersonSearch } from './person-search';
 import { matchesPerson, matchesSearch } from '@/lib/person-search';
 import { PaymentWizard } from './payment-wizard';
@@ -1004,7 +1004,8 @@ export function DailyWorkspace({
                     <strong>{p.name}</strong>
                     {p.color && (
                       <small className="record-color-label">
-                        Etiqueta: {colorLabel(p.color)}
+                        {colorLabel(p.color)} ·{' '}
+                        {colorMeaning(p.color, p.project || '')}
                       </small>
                     )}
                     <small className="record-kind">

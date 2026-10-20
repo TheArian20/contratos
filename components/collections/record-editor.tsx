@@ -172,6 +172,7 @@ export function RecordEditor({
                 identificados.
               </p>
               <ColorPicker
+                project={project}
                 value={values.color ?? ''}
                 allowPink={!pinkDebt || admin}
                 disabled={pinkDebt && before.paidInFull && !admin}
